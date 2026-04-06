@@ -1,0 +1,40 @@
+# Lumicams — production-style stack (API + web). Use an external PostgreSQL URL.
+#
+#   cp backend/.env.example backend/.env   # fill DATABASE_URL, SECRET_KEY, ALLOWED_ORIGINS, etc.
+#   docker compose up --build -d
+#
+# Point ALLOWED_ORIGINS to where users open the UI (e.g. http://localhost:3000 for local compose).
+# API: http://localhost:8000/api/health  Web: http://localhost:3000
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      ENVIRONMENT: production
+    volumes:
+      - ./backend/snapshots:/app/snapshots
+      # Mount model weights if not baked into the image:
+      - ./backend/models:/app/models:ro
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_URL: http://api:8000
+        # Browser calls API on host port (must match how users reach the API)
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: http://api:8000
+    depends_on:
+      - api
+    restart: unless-stopped

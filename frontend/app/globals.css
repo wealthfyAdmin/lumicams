@@ -1,0 +1,378 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ─────────────────────────────────────────── */
+@layer base {
+  :root {
+    --background:  220 30% 6%;
+    --foreground:  210 40% 92%;
+
+    --card:        220 25% 9%;
+    --card-foreground: 210 40% 92%;
+
+    --popover:     220 25% 9%;
+    --popover-foreground: 210 40% 92%;
+
+    --primary:     191 100% 50%;   /* #00d4ff cyan */
+    --primary-foreground: 220 30% 6%;
+
+    --secondary:   220 20% 14%;
+    --secondary-foreground: 210 40% 80%;
+
+    --muted:       220 20% 14%;
+    --muted-foreground: 215 20% 50%;
+
+    --accent:      220 20% 18%;
+    --accent-foreground: 210 40% 92%;
+
+    --destructive: 16 100% 50%;    /* #ff4500 fire-red */
+    --destructive-foreground: 0 0% 100%;
+
+    --border:      220 20% 18%;
+    --input:       220 20% 14%;
+    --ring:        191 100% 50%;
+
+    --radius: 0.5rem;
+
+    /* Aegis custom */
+    --cyan:        #00d4ff;
+    --fire:        #ff4500;
+    --fall:        #f59e0b;
+    --safe:        #22c55e;
+    --panel:       #080d1a;
+    --surface:     #0d1527;
+    --border-col:  #1a2540;
+
+    --font-rajdhani:   'Rajdhani', sans-serif;
+    --font-orbitron:   'Orbitron', sans-serif;
+    --font-space-mono: 'Space Mono', monospace;
+
+    /* Dashboard chrome (dark default) */
+    --dash-main-bg: transparent;
+    --dash-sidebar-bg: #0a0f1e;
+    --dash-sidebar-border: #1a2540;
+    --dash-nav-label: #2a3a5c;
+    --dash-nav-inactive: #475569;
+    --dash-nav-hover: #94a3b8;
+    --dash-alerts-bg: #0a0f1e;
+    --dash-alerts-border: #1a2540;
+    --dash-meta: #2a3a5c;
+    --dash-subtle: #475569;
+    --dash-body-text: #94a3b8;
+
+    /* Alert list row (live sidebar) */
+    --live-alert-sub: #94a3b8;
+    --live-alert-time: #2a3a5c;
+    --live-alert-hint: #475569;
+    --live-alert-badge-bg: rgba(255,255,255,0.04);
+
+    /* Banner callouts */
+    --banner-warn-border: rgba(251, 191, 36, 0.35);
+    --banner-warn-bg: rgba(251, 191, 36, 0.12);
+    --banner-warn-text: #fef3c7;
+    --banner-ok-border: rgba(52, 211, 153, 0.35);
+    --banner-ok-bg: rgba(16, 185, 129, 0.1);
+    --banner-ok-text: #a7f3d0;
+    --banner-danger-border: rgba(248, 113, 113, 0.35);
+    --banner-danger-bg: rgba(248, 113, 113, 0.1);
+    --banner-danger-text: #fecaca;
+  }
+
+  html[data-theme="light"] {
+    --dash-main-bg: #eef4fb;
+    --dash-sidebar-bg: #f1f5f9;
+    --dash-sidebar-border: #cbd5e1;
+    --dash-nav-label: #64748b;
+    --dash-nav-inactive: #475569;
+    --dash-nav-hover: #334155;
+    --dash-alerts-bg: #f8fafc;
+    --dash-alerts-border: #e2e8f0;
+    --dash-meta: #64748b;
+    --dash-subtle: #64748b;
+    --dash-body-text: #334155;
+
+    --live-alert-sub: #475569;
+    --live-alert-time: #64748b;
+    --live-alert-hint: #64748b;
+    --live-alert-badge-bg: rgba(15, 23, 42, 0.06);
+
+    --banner-warn-border: #ca8a04;
+    --banner-warn-bg: #fffbeb;
+    --banner-warn-text: #713f12;
+    --banner-ok-border: #059669;
+    --banner-ok-bg: #ecfdf5;
+    --banner-ok-text: #065f46;
+    --banner-danger-border: #dc2626;
+    --banner-danger-bg: #fef2f2;
+    --banner-danger-text: #991b1b;
+  }
+}
+
+/* ─── Base resets ────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-rajdhani);
+    font-size: 15px;
+    line-height: 1.6;
+    background-color: #080d1a;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  html[data-theme="light"] body {
+    color: #0f172a;
+    background-color: #eef4fb;
+    background-image:
+      linear-gradient(rgba(30,64,175,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,64,175,0.08) 1px, transparent 1px);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-orbitron);
+    letter-spacing: 0.04em;
+  }
+
+  ::-webkit-scrollbar           { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track     { background: #0d1527; }
+  ::-webkit-scrollbar-thumb     { background: #1a2540; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #00d4ff44; }
+
+  html[data-theme="light"] ::-webkit-scrollbar-track { background: #e2e8f0; }
+  html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+  html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+}
+
+/* ─── Aegis Component Utilities ─────────────────────────────── */
+@layer components {
+
+  /* Glowing panel card */
+  .aegis-card {
+    @apply rounded-lg border;
+    background: #0d1527;
+    border-color: #1a2540;
+    box-shadow: 0 0 0 1px rgba(0,212,255,0.05), 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  html[data-theme="light"] .aegis-card {
+    background: #ffffff;
+    border-color: #cdd9ee;
+    box-shadow: 0 0 0 1px rgba(2,132,199,0.08), 0 8px 28px rgba(15,23,42,0.08);
+  }
+
+  .aegis-card:hover {
+    border-color: rgba(0,212,255,0.15);
+    box-shadow: 0 0 0 1px rgba(0,212,255,0.1), 0 4px 32px rgba(0,0,0,0.5);
+    transition: all 0.2s ease;
+  }
+
+  /* Cyan neon glow button */
+  .btn-aegis {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold text-sm transition-all duration-200;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: #00d4ff;
+  }
+
+  .btn-aegis:hover {
+    background: rgba(0,212,255,0.2);
+    border-color: rgba(0,212,255,0.6);
+    box-shadow: 0 0 16px rgba(0,212,255,0.25);
+  }
+
+  html[data-theme="light"] .btn-aegis {
+    background: rgba(2,132,199,0.1);
+    border-color: rgba(2,132,199,0.35);
+    color: #0369a1;
+  }
+
+  /* Fire alert badge */
+  .badge-fire {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold tracking-wider;
+    background: rgba(255,69,0,0.15);
+    border: 1px solid rgba(255,69,0,0.4);
+    color: #ff6b35;
+  }
+
+  /* Fall alert badge */
+  .badge-fall {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold tracking-wider;
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.4);
+    color: #fbbf24;
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+
+  .status-dot.active   { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+  .status-dot.inactive { background: #475569; }
+  .status-dot.error    { background: #ef4444; box-shadow: 0 0 6px #ef444488; }
+
+  /* Scan line animation on video feeds */
+  .scan-overlay {
+    @apply absolute inset-0 pointer-events-none overflow-hidden rounded;
+  }
+  .scan-overlay::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.6), transparent);
+    animation: scan 4s linear infinite;
+  }
+
+  /* Table styles */
+  .aegis-table th {
+    font-family: var(--font-orbitron);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #475569;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #1a2540;
+  }
+  .aegis-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid rgba(26,37,64,0.6);
+    font-family: var(--font-rajdhani);
+    font-size: 0.9rem;
+  }
+  .aegis-table tr:hover td {
+    background: rgba(0,212,255,0.02);
+  }
+
+  html[data-theme="light"] .aegis-table th {
+    color: #475569;
+    border-bottom-color: #dbe5f4;
+  }
+  html[data-theme="light"] .aegis-table td {
+    border-bottom-color: #e2e8f0;
+  }
+  html[data-theme="light"] .aegis-table tr:hover td {
+    background: rgba(2,132,199,0.05);
+  }
+
+  /* Top nav glow line */
+  .nav-glow {
+    box-shadow: 0 1px 0 rgba(0,212,255,0.15), 0 2px 20px rgba(0,0,0,0.5);
+  }
+  html[data-theme="light"] .nav-glow {
+    box-shadow: 0 1px 0 rgba(2,132,199,0.2), 0 2px 20px rgba(15,23,42,0.06);
+  }
+
+  /* Side panels follow theme */
+  .dashboard-sidebar {
+    background: var(--dash-sidebar-bg);
+    border-right: 1px solid var(--dash-sidebar-border);
+  }
+  .dashboard-alerts-panel {
+    background: var(--dash-alerts-bg);
+    border-left: 1px solid var(--dash-alerts-border);
+  }
+  .dashboard-main {
+    background: var(--dash-main-bg);
+  }
+
+  .aegis-subcard {
+    border: 1px solid #1a2540;
+    background: rgba(15, 23, 42, 0.5);
+  }
+  html[data-theme="light"] .aegis-subcard {
+    border-color: #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .aegis-text-title {
+    color: #e2e8f0;
+  }
+  html[data-theme="light"] .aegis-text-title {
+    color: #0f172a;
+  }
+
+  /* Readable banners in light + dark */
+  .aegis-banner {
+    @apply rounded-lg border px-4 py-3 text-xs;
+  }
+  .aegis-banner--warn {
+    border-color: var(--banner-warn-border);
+    background: var(--banner-warn-bg);
+    color: var(--banner-warn-text);
+  }
+  .aegis-banner--success {
+    border-color: var(--banner-ok-border);
+    background: var(--banner-ok-bg);
+    color: var(--banner-ok-text);
+  }
+  .aegis-banner--danger {
+    border-color: var(--banner-danger-border);
+    background: var(--banner-danger-bg);
+    color: var(--banner-danger-text);
+  }
+
+  /* Form controls that work in both themes */
+  .aegis-field {
+    @apply w-full mt-1 px-2 py-1.5 rounded text-xs outline-none;
+    background: #0d1527;
+    border: 1px solid #1a2540;
+    color: #e2e8f0;
+  }
+  html[data-theme="light"] .aegis-field {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  .aegis-control {
+    @apply text-xs px-2 py-1.5 rounded outline-none;
+    background: #0d1527;
+    border: 1px solid #1a2540;
+    color: #94a3b8;
+  }
+  html[data-theme="light"] .aegis-control {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #334155;
+  }
+}
+
+/* ─── Alert entry animation ─────────────────────────────────── */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scan {
+  from { top: -2px; }
+  to   { top: 100%; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.alert-enter     { animation: slideInRight 0.3s ease forwards; }
+.fade-in         { animation: fadeIn 0.4s ease forwards; }
+.blink           { animation: blink 1.4s ease-in-out infinite; }

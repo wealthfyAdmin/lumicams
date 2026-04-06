@@ -1,0 +1,46 @@
+# ============================================================
+# Aegis-Eye Backend – Python Dependencies
+# Compatible with Python 3.11 / 3.12 / 3.13 on Windows/Linux/Mac
+# ============================================================
+
+# --- Web Framework ---
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# --- Database ---
+sqlalchemy>=2.0.36
+psycopg2-binary>=2.9.10
+alembic==1.13.1
+
+# --- Auth ---
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1          # passlib 1.7.4 breaks with bcrypt 4.1+ (__about__ removed)
+
+# --- Configuration ---
+python-dotenv==1.0.1
+python-multipart==0.0.9
+
+# --- Computer Vision ---
+# numpy 2.x ships pre-built wheels for Python 3.13 on Windows
+numpy>=2.0.0
+
+# opencv-python-headless 4.10+ provides cp313 wheels for Windows
+opencv-python-headless>=4.10.0.84
+
+# --- AI / Machine Learning ---
+# YOLO11 requires ultralytics 8.3+; 8.2+ supports numpy 2.x and Python 3.13
+ultralytics>=8.3.0
+
+# mediapipe does NOT yet support Python 3.13 on Windows.
+# Comment this line out if you are on Python 3.13 — fall detection
+# will be gracefully disabled, everything else works normally.
+mediapipe>=0.10.14; python_version < "3.13"
+
+# Face recognition: onnxruntime enables YuNet+ArcFace pipeline on Python 3.13 where `insightface` has no wheel.
+onnxruntime>=1.17.0
+# Optional native InsightFace (Python 3.11/3.12 + MSVC); if install fails, ORT fallback above is used.
+# insightface>=0.7.3
+
+# --- Utilities ---
+Pillow>=10.3.0

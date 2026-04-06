@@ -1,0 +1,50 @@
+# ── Python ────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+.Python
+
+# ── Environment / Secrets ─────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.local.example
+!backend/.env.example
+!frontend/.env.example
+
+# ── Next.js ───────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.npm
+
+# ── AI Models ─────────────────────────────
+backend/models/*.pt
+backend/models/*.onnx
+
+# ── Snapshots (runtime data) ──────────────
+backend/snapshots/
+
+# ── IDE ───────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────
+*.log
+uvicorn.log
