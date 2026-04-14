@@ -12,7 +12,7 @@ export default function LoginPage() {
   const setAuth  = useAuth((s) => s.setAuth);
   const hydrate  = useAuth((s) => s.hydrate);
 
-  const [email,    setEmail]    = useState("admin@aegis.local");
+  const [email,    setEmail]    = useState("admin@lumicams.com");
   const [password, setPassword] = useState("");
   const [showPwd,  setShowPwd]  = useState(false);
   const [loading,  setLoading]  = useState(false);

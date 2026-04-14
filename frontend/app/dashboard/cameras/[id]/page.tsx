@@ -30,7 +30,7 @@ export default function CameraAnalyticsPage() {
   const [streamKey, setStreamKey] = useState(() => Date.now());
   const [streamError, setStreamError] = useState(false);
 
-  async function load() {
+  async function load(resetStream = false) {
     setLoading(true);
     try {
       const [analytics, camAlerts] = await Promise.all([
@@ -41,15 +41,19 @@ export default function CameraAnalyticsPage() {
       setSnapshotAlerts(
         (camAlerts as Alert[]).filter((a) => Boolean(a.snapshot_path)).slice(0, 8)
       );
-      setStreamKey(Date.now());
-      setStreamError(false);
+      // Only reconnect the MJPEG stream when explicitly requested (manual Refresh button)
+      // or when recovering from a stream error. Avoids blink on routine data polls.
+      if (resetStream) {
+        setStreamKey(Date.now());
+        setStreamError(false);
+      }
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!Number.isNaN(cameraId)) load();
+    if (!Number.isNaN(cameraId)) load(false);
   }, [cameraId, hours]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const videoSrc = useMemo(
@@ -95,7 +99,7 @@ export default function CameraAnalyticsPage() {
             <option value={72}>Last 72h</option>
             <option value={168}>Last 7d</option>
           </select>
-          <button onClick={load} className="btn-aegis text-xs">
+          <button onClick={() => load(true)} className="btn-aegis text-xs">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             REFRESH
           </button>

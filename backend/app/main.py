@@ -105,8 +105,8 @@ def _seed_admin() -> None:
     db = SessionLocal()
     try:
         if db.query(User).count() == 0:
-            admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@aegis.local")
-            admin_pass  = os.getenv("DEFAULT_ADMIN_PASSWORD", "AegisAdmin@123")
+            admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@lumicams.com")
+            admin_pass  = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@123")
             admin = User(
                 email=admin_email,
                 full_name="System Administrator",

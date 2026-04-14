@@ -20,6 +20,20 @@ logger = logging.getLogger(__name__)
 # Optional heavy dependencies
 # ---------------------------------------------------------------------------
 
+# Disable Ultralytics' auto-update / settings-check network calls.
+# Without this, every import attempts to fetch lap>=0.5.12 and spams
+# "AutoUpdate skipped (offline)" / "requirement not found" warnings.
+os.environ.setdefault("YOLO_AUTOINSTALL", "False")
+os.environ.setdefault("ULTRALYTICS_AUTO_UPDATE", "False")
+
+try:
+    # Suppress the settings-write that triggers the update checker.
+    import ultralytics.utils as _ult_utils  # noqa: F401
+    if hasattr(_ult_utils, "SETTINGS"):
+        _ult_utils.SETTINGS.update({"sync": False})  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 try:
     from ultralytics import YOLO
     _YOLO_AVAILABLE = True
@@ -95,23 +109,25 @@ POSE_LANDMARKER_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pos
 FOOTFALL_YOLO_MODEL: str = os.getenv("FOOTFALL_YOLO_MODEL", "yolo11n.pt")
 PERSON_DETECT_MODEL: str = os.getenv("PERSON_DETECT_MODEL", FOOTFALL_YOLO_MODEL)
 PEOPLE_TRACKER_BACKEND: str = os.getenv("PEOPLE_TRACKER_BACKEND", "bytetrack").strip().lower()
-FOOTFALL_PERSON_CONF: float = float(os.getenv("FOOTFALL_PERSON_CONF", "0.38"))
+FOOTFALL_PERSON_CONF: float = float(os.getenv("FOOTFALL_PERSON_CONF", "0.25"))
 FOOTFALL_INFER_IMGSZ: int = int(os.getenv("FOOTFALL_INFER_IMGSZ", "640"))
 INFER_EVERY_N_FRAMES: int = int(os.getenv("INFER_EVERY_N_FRAMES", "2"))
-PERSON_MIN_BOX_AREA_NORM: float = float(os.getenv("PERSON_MIN_BOX_AREA_NORM", "0.00115"))
-PERSON_MIN_BOX_HEIGHT_NORM: float = float(os.getenv("PERSON_MIN_BOX_HEIGHT_NORM", "0.052"))
+# Lowered for dense crowd scenes where distant/partially-occluded people are small.
+PERSON_MIN_BOX_AREA_NORM: float = float(os.getenv("PERSON_MIN_BOX_AREA_NORM", "0.00035"))
+PERSON_MIN_BOX_HEIGHT_NORM: float = float(os.getenv("PERSON_MIN_BOX_HEIGHT_NORM", "0.025"))
 PERSON_MAX_BOX_ASPECT: float = float(os.getenv("PERSON_MAX_BOX_ASPECT", "2.2"))
 # Min width/height of bbox (COCO person). Helps drop spurious vertical slivers; 0 = off.
-PERSON_MIN_W_OVER_H: float = float(os.getenv("PERSON_MIN_W_OVER_H", "0.2"))
+PERSON_MIN_W_OVER_H: float = float(os.getenv("PERSON_MIN_W_OVER_H", "0.18"))
 # Stricter per-box score for counting (reduces chair / clutter false positives vs FOOTFALL_PERSON_CONF).
-PERSON_COUNT_CONF_MIN: float = float(os.getenv("PERSON_COUNT_CONF_MIN", "0.42"))
+PERSON_COUNT_CONF_MIN: float = float(os.getenv("PERSON_COUNT_CONF_MIN", "0.28"))
 # Merge overlapping person boxes (same person detected twice); lower = stricter merge.
 PERSON_DEDUPE_IOU: float = float(os.getenv("PERSON_DEDUPE_IOU", "0.45"))
+# Raised significantly for busy crowd scenes (100+ people in frame).
 FOOTFALL_YOLO_MAX_DET: int = max(1, int(os.getenv("FOOTFALL_YOLO_MAX_DET", "50")))
 # Extra floor on per-detection score after global conf filter (reduces weak boxes).
 PERSON_MIN_PER_BOX_CONF: float = float(os.getenv("PERSON_MIN_PER_BOX_CONF", "0.0"))
 
-FIRE_CONF_THRESHOLD: float = float(os.getenv("FIRE_CONF_THRESHOLD", "0.45"))
+FIRE_CONF_THRESHOLD: float = float(os.getenv("FIRE_CONF_THRESHOLD", "0.60"))
 FIRE_MIN_AREA_NORM: float = float(os.getenv("FIRE_MIN_AREA_NORM", "0.0015"))
 FIRE_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FIRE_CONSECUTIVE_FRAMES", "3")))
 FIRE_ALLOWED_CLASS_NAMES: tuple[str, ...] = tuple(
@@ -220,16 +236,33 @@ def _refine_weapon_display_label(raw_lbl: str, x1: int, y1: int, x2: int, y2: in
 
 
 # Legacy width/height of full pose bbox; used only when torso is ambiguous (not for upright rejection).
-FALL_RATIO_THRESHOLD: float = float(os.getenv("FALL_RATIO_THRESHOLD", "1.65"))
+FALL_RATIO_THRESHOLD: float = float(os.getenv("FALL_RATIO_THRESHOLD", "1.15"))
 POSE_DETECTION_CONF: float = float(os.getenv("POSE_DETECTION_CONF", "0.5"))
 # Torso: shoulder-mid to hip-mid must be mostly vertical (|dy|/norm) to count as upright/seated.
-FALL_MIN_UPRIGHT_VERTICALITY: float = float(os.getenv("FALL_MIN_UPRIGHT_VERTICALITY", "0.42"))
+FALL_MIN_UPRIGHT_VERTICALITY: float = float(os.getenv("FALL_MIN_UPRIGHT_VERTICALITY", "0.55"))
 # If shoulder–hip vertical separation (norm coords) is at least this, hips are clearly below shoulders → not a fall.
-FALL_MIN_SHOULDER_HIP_DY_NORM: float = float(os.getenv("FALL_MIN_SHOULDER_HIP_DY_NORM", "0.055"))
+FALL_MIN_SHOULDER_HIP_DY_NORM: float = float(os.getenv("FALL_MIN_SHOULDER_HIP_DY_NORM", "0.08"))
 # If |dy| is tiny (e.g. overhead camera), use head-vs-hips: head above hips → not a fall.
-FALL_AMBIGUOUS_DY_NORM: float = float(os.getenv("FALL_AMBIGUOUS_DY_NORM", "0.048"))
+FALL_AMBIGUOUS_DY_NORM: float = float(os.getenv("FALL_AMBIGUOUS_DY_NORM", "0.025"))
 # Require this many consecutive “fall candidate” frames before alerting (reduces flicker / false positives).
-FALL_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FALL_CONSECUTIVE_FRAMES", "5")))
+FALL_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FALL_CONSECUTIVE_FRAMES", "3")))
+
+# YOLO-based fall detector (overhead / bird-eye views where MediaPipe returns no landmarks)
+# Person bbox width/height aspect >= this means body is horizontal -> fall candidate.
+FALL_YOLO_ASPECT_THRESHOLD: float = float(os.getenv("FALL_YOLO_ASPECT_THRESHOLD", "1.4"))
+# Min YOLO person confidence to consider for fall analysis.
+FALL_YOLO_PERSON_CONF: float = float(os.getenv("FALL_YOLO_PERSON_CONF", "0.18"))
+# Min person bbox area as fraction of frame area (filters tiny distant blobs).
+FALL_YOLO_MIN_AREA_NORM: float = float(os.getenv("FALL_YOLO_MIN_AREA_NORM", "0.00015"))
+# Consecutive frames a person bbox stays horizontal before triggering.
+FALL_YOLO_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FALL_YOLO_CONSECUTIVE_FRAMES", "2")))
+# Inference image size for the YOLO fall detector.
+# 640 is fast enough for close/medium cameras; set to 1280 via env only if on GPU or for distant overhead cams.
+FALL_YOLO_IMGSZ: int = int(os.getenv("FALL_YOLO_IMGSZ", "640"))
+# Run fall detection every N inference frames (independent of INFER_EVERY_N_FRAMES so other
+# detectors like fire are not slowed down by the heavier fall path).
+# E.g. INFER_EVERY_N_FRAMES=2, FALL_INFER_EVERY_N=2 → fall runs every 4th raw frame.
+FALL_INFER_EVERY_N: int = max(1, int(os.getenv("FALL_INFER_EVERY_N", "2")))
 # Draw shoulder–hip line + label on MJPEG preview when pose is available.
 FALL_DRAW_POSE_OVERLAY: bool = os.getenv("FALL_DRAW_POSE_OVERLAY", "true").strip().lower() in (
     "1",
@@ -589,6 +622,8 @@ class VideoProcessor:
         self._last_footfall_cross_ts: Dict[int, float] = {}
         self._fire_consecutive = 0
         self._fall_consecutive = 0
+        # per-track YOLO fall consecutive counter {track_or_box_key: int}
+        self._fall_yolo_consecutive: Dict[str, int] = {}
         self._fire_enabled = True
         self._fall_enabled = True
         self._face_enabled = True
@@ -1459,6 +1494,7 @@ class VideoProcessor:
     def _process_stream(self, cap: cv2.VideoCapture) -> None:
         self._refresh_camera_analytics_settings()
         frame_idx = 0
+        fall_infer_counter = 0   # separate cadence for the heavy fall detector
         settings_counter = 0
         is_file = not self.rtsp_url.startswith(("rtsp://", "rtmp://", "http://", "https://"))
         while not self._stop_event.is_set():
@@ -1476,6 +1512,8 @@ class VideoProcessor:
                 self._refresh_camera_analytics_settings()
 
             if frame_idx % INFER_EVERY_N_FRAMES != 0:
+                # Still push the raw frame so the MJPEG preview runs at full camera FPS.
+                self._publish_preview(frame)
                 continue
 
             fire_conf = self._detect_fire(frame) if self._fire_enabled else None
@@ -1515,7 +1553,14 @@ class VideoProcessor:
             else:
                 self._fire_consecutive = 0
 
-            fall_conf = self._detect_fall(frame) if self._fall_enabled else None
+            # Fall detection runs on its own cadence (FALL_INFER_EVERY_N inference frames)
+            # so the heavier dual-path detector doesn't block fire/PPE/crowd every frame.
+            fall_conf: Optional[float] = None
+            if self._fall_enabled:
+                fall_infer_counter += 1
+                if fall_infer_counter >= FALL_INFER_EVERY_N:
+                    fall_infer_counter = 0
+                    fall_conf = self._detect_fall(frame)
             if self._fall_enabled and fall_conf:
                 self._trigger_alert(frame, "Fall", fall_conf)
                 cv2.putText(
@@ -2501,88 +2546,300 @@ class VideoProcessor:
             lineType=cv2.LINE_AA,
         )
 
-    def _detect_fall(self, frame):
-        if not self._pose:
-            self._last_pose_landmarks = None
-            self._fall_consecutive = 0
-            return None
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = _Image(_ImageFormat.SRGB, rgb)
-        self._pose_ts_ms += 33
-        res = self._pose.detect_for_video(mp_image, self._pose_ts_ms)
-        if not res.pose_landmarks:
-            self._last_pose_landmarks = None
-            self._fall_consecutive = 0
+    # ------------------------------------------------------------------
+    # YOLO-based fall detector
+    # Works for overhead / bird's-eye cameras where MediaPipe pose cannot
+    # return landmarks (model was not trained on top-down views).
+    # Logic: a standing/walking person bbox is TALLER than wide.
+    #        A lying/fallen person bbox is WIDER than tall (aspect >= threshold).
+    # ------------------------------------------------------------------
+    def _detect_fall_yolo(self, frame: np.ndarray) -> Optional[float]:
+        """
+        Use the person-detection YOLO model to find horizontal bounding boxes.
+        Returns confidence if a fallen person is detected, else None.
+        """
+        if self._person_model is None:
             return None
 
-        lm = res.pose_landmarks[0]
-        self._last_pose_landmarks = lm
         h, w = frame.shape[:2]
+        frame_area = h * w
 
+        try:
+            results = self._person_model(
+                frame,
+                conf=FALL_YOLO_PERSON_CONF,
+                classes=[0],          # COCO class 0 = person
+                verbose=False,
+                imgsz=FALL_YOLO_IMGSZ,
+            )
+        except Exception:
+            return None
+
+        boxes = []
+        for r in results:
+            for box in (r.boxes or []):
+                try:
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    conf = float(box.conf[0])
+                except Exception:
+                    continue
+                bw = max(1, x2 - x1)
+                bh = max(1, y2 - y1)
+                area_norm = (bw * bh) / max(1, frame_area)
+                if area_norm < FALL_YOLO_MIN_AREA_NORM:
+                    continue
+                boxes.append((x1, y1, x2, y2, conf, bw, bh))
+
+        if not boxes:
+            # Decay all counters when no person detected
+            self._fall_yolo_consecutive = {
+                k: max(0, v - 1) for k, v in self._fall_yolo_consecutive.items()
+            }
+            return None
+
+        best_conf: Optional[float] = None
+
+        # Prune stale keys
+        current_keys = set()
+
+        for (x1, y1, x2, y2, det_conf, bw, bh) in boxes:
+            aspect = bw / bh          # wide > 1 → lying, tall < 1 → standing
+            # Grid-cell key so nearby boxes share a counter (handles small position jitter)
+            cell_x = int(x1 / w * 8)
+            cell_y = int(y1 / h * 8)
+            key = f"{cell_x}_{cell_y}"
+            current_keys.add(key)
+
+            if aspect >= FALL_YOLO_ASPECT_THRESHOLD:
+                self._fall_yolo_consecutive[key] = self._fall_yolo_consecutive.get(key, 0) + 1
+                if self._fall_yolo_consecutive[key] >= FALL_YOLO_CONSECUTIVE_FRAMES:
+                    # Compute confidence from aspect strength + detection confidence
+                    fall_conf = min(0.90, 0.50 + 0.08 * min(aspect, 3.0) + 0.05 * det_conf)
+                    if best_conf is None or fall_conf > best_conf:
+                        best_conf = round(fall_conf, 2)
+                    self._fall_yolo_consecutive[key] = 0   # reset after fire
+                    # Draw overlay box in orange
+                    if FALL_DRAW_POSE_OVERLAY:
+                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 140, 255), 2)
+                        cv2.putText(
+                            frame,
+                            f"FALL(YOLO) {fall_conf:.2f}",
+                            (int(x1), max(14, int(y1) - 6)),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.55,
+                            (0, 140, 255),
+                            2,
+                            lineType=cv2.LINE_AA,
+                        )
+            else:
+                # Person is standing/walking — decay counter
+                self._fall_yolo_consecutive[key] = max(
+                    0, self._fall_yolo_consecutive.get(key, 0) - 1
+                )
+
+        # Remove counters for positions no longer seen
+        self._fall_yolo_consecutive = {
+            k: v for k, v in self._fall_yolo_consecutive.items() if k in current_keys or v > 0
+        }
+
+        return best_conf
+
+    def _score_fall_pose(self, lm, h: int, w: int) -> Optional[float]:
+        """
+        Evaluate a single person's pose landmarks and return a fall confidence
+        score (0.0–0.92) if a fall is detected, else None.
+
+        Covers all fall directions:
+          • Side fall   – body horizontal, high x_span/y_span aspect
+          • Back fall   – spine/torso angled, head near ground level
+          • Front fall  – face-down, nose/shoulder y close to hip y
+          • Slope/ramp  – nearly flat body but hips not clearly below shoulders
+
+        Strategy: accumulate evidence from FOUR independent signals and fire
+        when at least TWO are positive, OR when any single signal is very strong.
+        This makes the detector robust to partial occlusion / low landmark
+        visibility on the ground.
+        """
         try:
             n = len(lm)
         except TypeError:
-            self._fall_consecutive = 0
             return None
 
-        def vis_lm(i: int):
+        # --- low-visibility threshold: 0.3 instead of 0.5 so lying-down
+        #     landmarks (often 0.3–0.45) are not discarded -----------------
+        VIS = 0.3
+
+        def get(i: int):
             if i >= n:
                 return None
             p = lm[i]
-            if getattr(p, "visibility", 0.0) < 0.5:
+            if getattr(p, "visibility", 0.0) < VIS:
                 return None
             return p
 
-        l_sh, r_sh = vis_lm(11), vis_lm(12)
-        l_hp, r_hp = vis_lm(23), vis_lm(24)
-        nose = vis_lm(0)
-        if not (l_sh and r_sh and l_hp and r_hp):
-            self._fall_consecutive = 0
+        # Core landmarks
+        l_sh = get(11); r_sh = get(12)
+        l_hp = get(23); r_hp = get(24)
+        nose  = get(0)
+        l_kn  = get(25); r_kn  = get(26)
+        l_ank = get(27); r_ank = get(28)
+        l_wr  = get(15); r_wr  = get(16)
+
+        # Need at least shoulders OR hips to proceed
+        have_sh = l_sh is not None and r_sh is not None
+        have_hp = l_hp is not None and r_hp is not None
+        if not have_sh and not have_hp:
             return None
 
-        sx = (l_sh.x + r_sh.x) * 0.5
-        sy = (l_sh.y + r_sh.y) * 0.5
-        hx = (l_hp.x + r_hp.x) * 0.5
-        hy = (l_hp.y + r_hp.y) * 0.5
-        dy = hy - sy
-        dx = hx - sx
-        norm = math.sqrt(dx * dx + dy * dy) + 1e-9
-        verticality = abs(dy) / norm
+        # ── Signal 1: torso verticality ─────────────────────────────────────
+        # A standing/seated person has vertical torso (|dy|/norm ≥ 0.55).
+        # A fallen person has a horizontal/diagonal torso.
+        torso_fallen = False
+        verticality = 1.0  # default: assume vertical if we can't compute
+        if have_sh and have_hp:
+            sx = (l_sh.x + r_sh.x) * 0.5
+            sy = (l_sh.y + r_sh.y) * 0.5
+            hx = (l_hp.x + r_hp.x) * 0.5
+            hy = (l_hp.y + r_hp.y) * 0.5
+            dy = hy - sy          # positive = hips below shoulders (upright)
+            dx = hx - sx
+            norm = math.sqrt(dx * dx + dy * dy) + 1e-9
+            verticality = abs(dy) / norm
 
-        # Clear upright / seated: hips below shoulders with a vertical torso in image space.
-        if dy >= FALL_MIN_SHOULDER_HIP_DY_NORM and verticality >= FALL_MIN_UPRIGHT_VERTICALITY:
-            self._fall_consecutive = 0
+            # Clearly upright: hips well below shoulders AND torso mostly vertical
+            if dy >= FALL_MIN_SHOULDER_HIP_DY_NORM and verticality >= FALL_MIN_UPRIGHT_VERTICALITY:
+                return None  # definite standing/seated → early exit
+
+            # Torso is non-vertical (angle < ~56° from horizontal)
+            if verticality < 0.55:
+                torso_fallen = True
+
+        # ── Signal 2: full-body bounding-box aspect ratio ───────────────────
+        # Collect ALL visible landmarks at reduced threshold
+        xs_n = [p.x for i in range(n) if (p := lm[i]) and getattr(p, "visibility", 0) >= VIS]
+        ys_n = [p.y for i in range(n) if (p := lm[i]) and getattr(p, "visibility", 0) >= VIS]
+        aspect_fallen = False
+        aspect = 0.0
+        if len(xs_n) >= 4:
+            y_span_n = max(ys_n) - min(ys_n) + 1e-9
+            x_span_n = max(xs_n) - min(xs_n)
+            aspect = x_span_n / y_span_n
+            # Side/back/front fall: body wider than tall
+            if aspect >= FALL_RATIO_THRESHOLD:
+                aspect_fallen = True
+
+        # ── Signal 3: extremity elevation ───────────────────────────────────
+        # When a person is lying down, ankles/knees are at roughly the same
+        # vertical level as the hips (or even above). In standing posture
+        # ankles are always well below hips.
+        extremity_fallen = False
+        if have_hp:
+            hip_y = ((l_hp.y if l_hp else 0) + (r_hp.y if r_hp else 0)) / max(
+                1, (1 if l_hp else 0) + (1 if r_hp else 0)
+            )
+            ankles = [a for a in (l_ank, r_ank) if a is not None]
+            knees  = [k for k in (l_kn,  r_kn)  if k is not None]
+            # In image coords y increases downward; ankles normally have LARGER y than hips.
+            # If an ankle is above or near the hip level → person is not standing.
+            if ankles and any(a.y < hip_y + 0.06 for a in ankles):
+                extremity_fallen = True
+            elif knees and any(k.y < hip_y + 0.04 for k in knees):
+                extremity_fallen = True
+
+        # ── Signal 4: head/nose close to ground ─────────────────────────────
+        # Nose y-coordinate is close to (or above) the hip y-coordinate.
+        head_low = False
+        if nose is not None and have_hp:
+            hip_y = ((l_hp.y if l_hp else 0) + (r_hp.y if r_hp else 0)) / max(
+                1, (1 if l_hp else 0) + (1 if r_hp else 0)
+            )
+            # In image y: nose is normally ABOVE hips (smaller y).
+            # If nose.y is within 10% of frame height of hip_y → head is near ground.
+            if abs(nose.y - hip_y) < 0.12:
+                head_low = True
+            # Front/back fall: nose is BELOW hips (person face-down or supine with legs raised)
+            if nose.y > hip_y + 0.0:
+                head_low = True
+
+        # ── Upright safety check using head ─────────────────────────────────
+        # If the nose is clearly above the hips AND torso looks ambiguous, treat as not fallen.
+        if not torso_fallen and not aspect_fallen and not extremity_fallen:
+            if nose is not None and have_hp:
+                hip_y = ((l_hp.y if l_hp else 0) + (r_hp.y if r_hp else 0)) / max(
+                    1, (1 if l_hp else 0) + (1 if r_hp else 0)
+                )
+                if nose.y < hip_y - FALL_AMBIGUOUS_DY_NORM:
+                    return None  # head clearly above hips, all other signals negative
+
+        # ── Decision: require ≥2 signals OR 1 very strong signal ────────────
+        signals = [torso_fallen, aspect_fallen, extremity_fallen, head_low]
+        n_positive = sum(signals)
+
+        # Very strong single signal: aspect ≥ 2× threshold (clearly horizontal body)
+        very_strong = aspect >= FALL_RATIO_THRESHOLD * 2.0
+
+        if n_positive < 2 and not very_strong:
             return None
 
-        # Overhead / shallow angle: torso is short in y — if head is still above hips, treat as not fallen.
-        if abs(dy) < FALL_AMBIGUOUS_DY_NORM and nose is not None and nose.y < hy - 0.015:
-            self._fall_consecutive = 0
-            return None
-
-        xs = [l.x * w for l in lm if getattr(l, "visibility", 0) > 0.5]
-        ys = [l.y * h for l in lm if getattr(l, "visibility", 0) > 0.5]
-        if len(xs) < 5:
-            self._fall_consecutive = 0
-            return None
-        y_span = max(ys) - min(ys)
-        x_span = max(xs) - min(xs)
-        if y_span <= 1e-6:
-            self._fall_consecutive = 0
-            return None
-        aspect = x_span / y_span
-
-        # Width-heavy bbox alone matched seated workers; require a non-upright torso and high aspect.
-        if aspect <= FALL_RATIO_THRESHOLD or verticality >= (FALL_MIN_UPRIGHT_VERTICALITY + 0.12):
-            self._fall_consecutive = 0
-            return None
-
-        self._fall_consecutive += 1
-        if self._fall_consecutive < self._fall_consecutive_required:
-            return None
-
-        self._fall_consecutive = 0
-        conf = min(0.92, 0.52 + 0.12 * min(aspect, 3.0))
+        # Confidence: weighted by how many signals fired + aspect strength
+        base = 0.50 + 0.08 * n_positive
+        aspect_bonus = 0.06 * min(aspect, 3.0) if aspect > 0 else 0.0
+        conf = min(0.92, base + aspect_bonus)
         return round(conf, 2)
+
+    def _detect_fall(self, frame):
+        """
+        Dual-path fall detector:
+          1. MediaPipe pose  – best for close-up, front/side/back views
+          2. YOLO bbox shape – best for overhead/bird's-eye views where
+             MediaPipe cannot detect landmarks at all
+
+        Returns the highest-confidence fall score from either path, or None.
+        """
+        # ── Path 1: YOLO bbox aspect (always runs if person model available) ──
+        yolo_conf = self._detect_fall_yolo(frame)
+
+        # ── Path 2: MediaPipe pose ────────────────────────────────────────────
+        pose_conf: Optional[float] = None
+        if self._pose:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = _Image(_ImageFormat.SRGB, rgb)
+            self._pose_ts_ms += 33
+            res = self._pose.detect_for_video(mp_image, self._pose_ts_ms)
+
+            if not res.pose_landmarks:
+                self._last_pose_landmarks = None
+                self._fall_consecutive = max(0, self._fall_consecutive - 1)
+            else:
+                h, w = frame.shape[:2]
+                best_conf: Optional[float] = None
+                best_lm = None
+                for person_lm in res.pose_landmarks:
+                    score = self._score_fall_pose(person_lm, h, w)
+                    if score is not None:
+                        if best_conf is None or score > best_conf:
+                            best_conf = score
+                            best_lm = person_lm
+
+                self._last_pose_landmarks = (
+                    best_lm if best_lm is not None else res.pose_landmarks[0]
+                )
+
+                if best_conf is None:
+                    self._fall_consecutive = max(0, self._fall_consecutive - 1)
+                else:
+                    self._fall_consecutive += 1
+                    if self._fall_consecutive >= self._fall_consecutive_required:
+                        self._fall_consecutive = 0
+                        pose_conf = best_conf
+        else:
+            self._last_pose_landmarks = None
+            self._fall_consecutive = 0
+
+        # ── Combine: return best result from either path ──────────────────────
+        if yolo_conf is not None and pose_conf is not None:
+            return max(yolo_conf, pose_conf)
+        return yolo_conf if yolo_conf is not None else pose_conf
 
     def _maybe_record_person_reid_samples(
         self,
