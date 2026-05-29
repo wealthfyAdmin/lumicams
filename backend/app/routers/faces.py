@@ -183,6 +183,7 @@ async def enroll_identity_image(
     category: FaceCategoryEnum = Form(FaceCategoryEnum.neutral),
     employee_code: Optional[str] = Form(None),
     image: UploadFile = File(...),
+    organization_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
@@ -212,12 +213,19 @@ async def enroll_identity_image(
     if app is not None:
         embeddings = _extract_embeddings_from_frame(frame, app)
 
-    if is_super_admin(_admin):
-        raise HTTPException(
-            status_code=422,
-            detail="Platform admin: enroll via POST /faces/identities with organization_id, or use org admin account.",
-        )
-    oid = _face_org_id_for_write(_admin, None)
+    oid = organization_id
+    if is_super_admin(_admin) and oid is None:
+        from app.models import Organization
+        first_org = db.query(Organization).first()
+        if first_org:
+            oid = first_org.id
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail="Platform admin: organization_id is required but no organizations exist in database.",
+            )
+
+    oid = _face_org_id_for_write(_admin, oid)
     obj = FaceIdentity(
         organization_id=oid,
         name=name.strip(),

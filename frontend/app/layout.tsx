@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aegis-Eye | AI Surveillance Platform",
+  title: "Lumicams | AI Surveillance Platform",
   description:
     "Real-time AI-powered security surveillance with Fire & Fall detection.",
   icons: { icon: "/favicon.ico" },
