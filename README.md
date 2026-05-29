@@ -64,7 +64,7 @@ DEFAULT_ADMIN_PASSWORD=ChangeMeOnFirstLogin
 
 # Models (examples — use your actual filenames)
 PERSON_DETECT_MODEL=yolov5su.pt
-YOLO_FIRE_MODEL=yolov5su.pt
+YOLO_FIRE_MODEL=models/yolov8s.pt
 YOLO_PPE_MODEL=models/your_ppe_primary.pt
 YOLO_PPE_AUX_MODEL=models/your_ppe_aux.pt
 

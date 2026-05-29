@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 os.environ.setdefault("YOLO_AUTOINSTALL", "False")
 os.environ.setdefault("ULTRALYTICS_AUTO_UPDATE", "False")
 
+# Optimize OpenCV/FFMPEG RTSP stream parameters for zero latency and real-time streaming
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay"
+
 try:
     # Suppress the settings-write that triggers the update checker.
     import ultralytics.utils as _ult_utils  # noqa: F401
@@ -928,6 +931,11 @@ class VideoProcessor:
         self._last_heatmap_flush = time.time()
         self._heatmap_hour_bucket: Optional[datetime] = None
 
+        self._live_frame_lock = threading.Lock()
+        self._latest_live_frame = None
+        self._latest_live_frame_ret = False
+        self._latest_live_frame_id = 0
+
         self._preview_lock = threading.Lock()
         self._preview_jpeg: Optional[bytes] = None
         self._organization_id: Optional[int] = None
@@ -1102,16 +1110,41 @@ class VideoProcessor:
 
     def _run_loop(self):
         self._update_camera_status("active")
-        while not self._stop_event.is_set():
-            source = self.rtsp_url
-            if not source.startswith(("rtsp://", "rtsps://", "http://", "https://")) and os.path.exists(source):
-                source = os.path.abspath(source)
-            cap = cv2.VideoCapture(source)
-            if not cap.isOpened():
-                self._stop_event.wait(STREAM_RECONNECT_DELAY)
-                continue
-            self._process_stream(cap)
-            cap.release()
+        is_live = self.rtsp_url.startswith(("rtsp://", "rtsps://", "rtmp://", "http://", "https://"))
+        if is_live:
+            def live_reader():
+                while not self._stop_event.is_set():
+                    source = self.rtsp_url
+                    cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    if not cap.isOpened():
+                        self._stop_event.wait(STREAM_RECONNECT_DELAY)
+                        continue
+                    while not self._stop_event.is_set() and cap.isOpened():
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
+                        with self._live_frame_lock:
+                            self._latest_live_frame = frame
+                            self._latest_live_frame_ret = ret
+                            self._latest_live_frame_id += 1
+                    cap.release()
+                    self._stop_event.wait(2.0)
+            
+            reader_thread = threading.Thread(target=live_reader, daemon=True)
+            reader_thread.start()
+            self._process_stream(None)
+        else:
+            while not self._stop_event.is_set():
+                source = self.rtsp_url
+                if os.path.exists(source):
+                    source = os.path.abspath(source)
+                cap = cv2.VideoCapture(source)
+                if not cap.isOpened():
+                    self._stop_event.wait(STREAM_RECONNECT_DELAY)
+                    continue
+                self._process_stream(cap)
+                cap.release()
         self._update_camera_status("inactive")
 
     def _needs_person_inference(self) -> bool:
@@ -1491,19 +1524,33 @@ class VideoProcessor:
             )
             self._queue_high_consecutive = 0
 
-    def _process_stream(self, cap: cv2.VideoCapture) -> None:
+    def _process_stream(self, cap: Optional[cv2.VideoCapture]) -> None:
         self._refresh_camera_analytics_settings()
         frame_idx = 0
         fall_infer_counter = 0   # separate cadence for the heavy fall detector
         settings_counter = 0
-        is_file = not self.rtsp_url.startswith(("rtsp://", "rtmp://", "http://", "https://"))
+        is_live = cap is None
+        is_file = not is_live and not self.rtsp_url.startswith(("rtsp://", "rtmp://", "http://", "https://"))
+        last_processed_frame_id = -1
+        
         while not self._stop_event.is_set():
-            ret, frame = cap.read()
-            if not ret:
-                if is_file:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            if is_live:
+                time.sleep(0.005)
+                with self._live_frame_lock:
+                    frame_id = self._latest_live_frame_id
+                    frame = self._latest_live_frame
+                    ret = self._latest_live_frame_ret
+                if not ret or frame is None or frame_id == last_processed_frame_id:
                     continue
-                break
+                last_processed_frame_id = frame_id
+                frame = frame.copy()
+            else:
+                ret, frame = cap.read()
+                if not ret:
+                    if is_file:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        continue
+                    break
 
             frame_idx += 1
             settings_counter += 1
