@@ -1,7 +1,7 @@
 /**
  * api.ts
  * ------
- * Axios client pre-configured for Aegis-Eye FastAPI backend.
+ * Axios client pre-configured for Lumicams FastAPI backend.
  *
  * - Automatically attaches `Authorization: Bearer <token>` header.
  * - On 401 responses, clears auth and redirects to /login.
@@ -26,7 +26,7 @@ export function getCameraVideoSrc(cameraId: number, cacheBust?: number): string 
   const base = BASE_URL.replace(/\/$/, "");
   const t = cacheBust ?? Date.now();
   const token =
-    typeof window !== "undefined" ? Cookies.get("aegis_token") : undefined;
+    typeof window !== "undefined" ? Cookies.get("lumicams_token") : undefined;
   const q = new URLSearchParams({ t: String(t) });
   if (token) q.set("token", token);
   return `${base}/cameras/${cameraId}/video?${q.toString()}`;
@@ -34,7 +34,7 @@ export function getCameraVideoSrc(cameraId: number, cacheBust?: number): string 
 
 // ── Request interceptor: inject JWT ──────────────────────────
 api.interceptors.request.use((config) => {
-  const token = Cookies.get("aegis_token");
+  const token = Cookies.get("lumicams_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -46,8 +46,8 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
-      Cookies.remove("aegis_token");
-      Cookies.remove("aegis_user");
+      Cookies.remove("lumicams_token");
+      Cookies.remove("lumicams_user");
       window.location.href = "/login";
     }
     return Promise.reject(error);

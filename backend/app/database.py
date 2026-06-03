@@ -14,7 +14,7 @@ load_dotenv()
 
 DATABASE_URL: str = os.getenv(
     "DATABASE_URL",
-    "postgresql://aegis_user:aegis_pass@localhost:5432/aegis_eye",
+    "postgresql://lumicams_user:lumicams_pass@localhost:5432/lumicams",
 )
 
 # Create synchronous engine (suitable for FastAPI with sync routes or background threads)

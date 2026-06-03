@@ -56,7 +56,7 @@ def _download(url: str, dest: Path, timeout: int = 120, min_bytes: int = 0) -> N
     logger.info("Downloading face model: %s", url)
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "Mozilla/5.0 (compatible; AegisEye/1.0)"},
+        headers={"User-Agent": "Mozilla/5.0 (compatible; Lumicams/1.0)"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp, open(tmp, "wb") as out:
         shutil.copyfileobj(resp, out)
@@ -134,7 +134,7 @@ class OnnxFaceAnalysis:
     with .normed_embedding and .embedding.
     """
 
-    _aegis_engine = "onnxruntime"
+    _lumicams_engine = "onnxruntime"
 
     def __init__(self) -> None:
         import onnxruntime as ort
@@ -279,7 +279,7 @@ def get_shared_face_app() -> Optional[Any]:
 
         app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
         app.prepare(ctx_id=-1, det_size=(640, 640))
-        app._aegis_engine = "insightface"  # type: ignore[attr-defined]
+        app._lumicams_engine = "insightface"  # type: ignore[attr-defined]
         _SHARED_FACE_APP = app
         return _SHARED_FACE_APP
     except Exception as exc:

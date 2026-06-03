@@ -1038,7 +1038,7 @@ class VideoProcessor:
 
                 self._face_app = get_shared_face_app()
                 if self._face_app is not None:
-                    eng = getattr(self._face_app, "_aegis_engine", "unknown")
+                    eng = getattr(self._face_app, "_lumicams_engine", "unknown")
                     logger.info("Face recognition backend ready (%s).", eng)
                 else:
                     logger.warning(

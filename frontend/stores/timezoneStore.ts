@@ -25,6 +25,6 @@ export const useTimezoneStore = create<TimezoneState>()(
       timezone: DEFAULT_TIMEZONE,
       setTimezone: (timezone) => set({ timezone }),
     }),
-    { name: "aegis-display-timezone" }
+    { name: "lumicams-display-timezone" }
   )
 );

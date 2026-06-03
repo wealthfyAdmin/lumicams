@@ -45,7 +45,7 @@ export default function CrowdLiveCountPanel({
 
   return (
     <div
-      className="aegis-subcard rounded-md p-3 space-y-2"
+      className="lumicams-subcard rounded-md p-3 space-y-2"
       style={{ borderColor: "rgba(56,189,248,0.35)" }}
     >
       <div className="flex items-center justify-between gap-2">

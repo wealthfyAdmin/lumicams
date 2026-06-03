@@ -1,5 +1,5 @@
 # ============================================================
-# Aegis-Eye Backend – Python Dependencies
+# Lumicams Backend – Python Dependencies
 # Compatible with Python 3.11–3.14 on Windows/Linux/Mac (fall uses YOLO pose on 3.13+)
 # ============================================================
 

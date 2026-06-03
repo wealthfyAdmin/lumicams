@@ -180,14 +180,14 @@ export default function CrowdAnalyticsPage() {
               </option>
             ))}
           </select>
-          <button onClick={refresh} className="btn-aegis text-xs">
+          <button onClick={refresh} className="btn-lumicams text-xs">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             REFRESH
           </button>
         </div>
       </div>
 
-      <section className="aegis-card p-4">
+      <section className="lumicams-card p-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Metric
             label="TOTAL PEOPLE NOW"
@@ -211,7 +211,7 @@ export default function CrowdAnalyticsPage() {
       </section>
 
       {/* Footfall */}
-      <section className="aegis-card p-5 space-y-4">
+      <section className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest flex items-center gap-2"
           style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}
@@ -367,7 +367,7 @@ export default function CrowdAnalyticsPage() {
       </section>
 
       {/* Live crowd metrics */}
-      <section className="aegis-card p-5 space-y-4">
+      <section className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest flex items-center gap-2"
           style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}
@@ -457,7 +457,7 @@ export default function CrowdAnalyticsPage() {
       </section>
 
       {/* Zone + frame (replaces abstract grid heatmap) */}
-      <section className="aegis-card p-5 space-y-4">
+      <section className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest flex items-center gap-2"
           style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}

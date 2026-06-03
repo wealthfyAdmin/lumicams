@@ -19,7 +19,7 @@ interface SettingRow {
 
 function SettingsSection({ title, icon: Icon, rows }: { title: string; icon: React.ElementType; rows: SettingRow[] }) {
   return (
-    <div className="aegis-card overflow-hidden">
+    <div className="lumicams-card overflow-hidden">
       <div
         className="flex items-center gap-2 px-5 py-3"
         style={{ borderBottom: "1px solid var(--dash-sidebar-border)" }}
@@ -32,7 +32,7 @@ function SettingsSection({ title, icon: Icon, rows }: { title: string; icon: Rea
           {title}
         </h2>
       </div>
-      <table className="w-full aegis-table">
+      <table className="w-full lumicams-table">
         <tbody>
           {rows.map(({ key, value, note }) => (
             <tr key={key}>
@@ -183,7 +183,7 @@ export default function SettingsPage() {
 
       {isAdmin && (
         <div
-          className="aegis-card overflow-hidden p-5 space-y-5"
+          className="lumicams-card overflow-hidden p-5 space-y-5"
           style={{ borderColor: "var(--dash-sidebar-border)" }}
         >
           <div className="flex items-center gap-2 flex-wrap justify-between">

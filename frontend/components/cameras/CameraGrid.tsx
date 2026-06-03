@@ -52,7 +52,7 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
   }
 
   return (
-    <div className="aegis-card overflow-hidden group border border-[#1a2540] hover:border-[#00d4ff]/30 transition-colors">
+    <div className="lumicams-card overflow-hidden group border border-[#1a2540] hover:border-[#00d4ff]/30 transition-colors">
       {/* Video Section */}
       <div className="relative aspect-video bg-[#080d1a] flex items-center justify-center overflow-hidden">
         {/* Corner brackets */}
@@ -162,7 +162,7 @@ interface CameraGridProps {
 export default function CameraGrid({ cameras, onRefresh }: CameraGridProps) {
   if (cameras.length === 0) {
     return (
-      <div className="aegis-card flex flex-col items-center justify-center gap-4 py-20 text-center opacity-60">
+      <div className="lumicams-card flex flex-col items-center justify-center gap-4 py-20 text-center opacity-60">
         <div className="p-4 rounded-full bg-slate-800/30">
           <CameraIcon className="w-10 h-10 text-slate-500" />
         </div>

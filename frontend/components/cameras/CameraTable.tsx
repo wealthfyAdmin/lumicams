@@ -306,7 +306,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl mx-4 aegis-card p-6 z-10 fade-in max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-2xl mx-4 lumicams-card p-6 z-10 fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-sm font-bold tracking-widest" style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}>
             {initial ? "EDIT CAMERA" : "ADD CAMERA"}
@@ -365,7 +365,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <label
-                className="aegis-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
+                className="lumicams-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
                 style={{ borderColor: fireEnabled ? "rgba(249,115,22,0.45)" : "#1a2540" }}
               >
                 <span className="inline-flex items-center gap-2 text-xs" style={{ color: fireEnabled ? "#fb923c" : "#94a3b8" }}>
@@ -375,7 +375,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 <input type="checkbox" checked={fireEnabled} onChange={(e) => setFireEnabled(e.target.checked)} />
               </label>
               <label
-                className="aegis-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
+                className="lumicams-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
                 style={{ borderColor: fallEnabled ? "rgba(245,158,11,0.45)" : "#1a2540" }}
               >
                 <span className="inline-flex items-center gap-2 text-xs" style={{ color: fallEnabled ? "#fbbf24" : "#94a3b8" }}>
@@ -385,7 +385,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 <input type="checkbox" checked={fallEnabled} onChange={(e) => setFallEnabled(e.target.checked)} />
               </label>
               <label
-                className="aegis-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
+                className="lumicams-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
                 style={{ borderColor: faceEnabled ? "rgba(139,92,246,0.45)" : "#1a2540" }}
               >
                 <span className="inline-flex items-center gap-2 text-xs" style={{ color: faceEnabled ? "#a78bfa" : "#94a3b8" }}>
@@ -395,7 +395,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 <input type="checkbox" checked={faceEnabled} onChange={(e) => setFaceEnabled(e.target.checked)} />
               </label>
               <label
-                className="aegis-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
+                className="lumicams-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
                 style={{ borderColor: ppeEnabled ? "rgba(16,185,129,0.45)" : "#1a2540" }}
               >
                 <span className="inline-flex items-center gap-2 text-xs" style={{ color: ppeEnabled ? "#34d399" : "#94a3b8" }}>
@@ -405,7 +405,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 <input type="checkbox" checked={ppeEnabled} onChange={(e) => setPpeEnabled(e.target.checked)} />
               </label>
               <label
-                className="aegis-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
+                className="lumicams-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer"
                 style={{ borderColor: weaponEnabled ? "rgba(239,68,68,0.45)" : "#1a2540" }}
               >
                 <span className="inline-flex items-center gap-2 text-xs" style={{ color: weaponEnabled ? "#f87171" : "#94a3b8" }}>
@@ -415,7 +415,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 <input type="checkbox" checked={weaponEnabled} onChange={(e) => setWeaponEnabled(e.target.checked)} />
               </label>
               <label
-                className="aegis-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer sm:col-span-2"
+                className="lumicams-subcard rounded-md px-3 py-2 flex items-center justify-between cursor-pointer sm:col-span-2"
                 style={{ borderColor: crowdModuleEnabled ? "rgba(56,189,248,0.45)" : "#1a2540" }}
               >
                 <span className="inline-flex items-center gap-2 text-xs" style={{ color: crowdModuleEnabled ? "#38bdf8" : "#94a3b8" }}>
@@ -431,7 +431,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-              <label className="aegis-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
+              <label className="lumicams-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
                 <input
                   type="checkbox"
                   checked={personDet}
@@ -440,7 +440,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 />
                 Person detection
               </label>
-              <label className="aegis-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
+              <label className="lumicams-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
                 <input
                   type="checkbox"
                   checked={crowdRoi}
@@ -449,7 +449,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 />
                 Crowd zone (ROI count)
               </label>
-              <label className="aegis-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
+              <label className="lumicams-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
                 <input
                   type="checkbox"
                   checked={footfallEnabled}
@@ -458,7 +458,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
                 />
                 Footfall counting
               </label>
-              <label className="aegis-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
+              <label className="lumicams-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: crowdModuleEnabled ? "#94a3b8" : "#64748b" }}>
                 <input
                   type="checkbox"
                   checked={heatmapEnabled}
@@ -482,7 +482,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
             )}
 
             {(fireEnabled || fallEnabled || faceEnabled || ppeEnabled || weaponEnabled) && (
-              <div className="aegis-subcard rounded-md p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end text-[10px] pt-1">
+              <div className="lumicams-subcard rounded-md p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end text-[10px] pt-1">
                 {fireEnabled && (
                   <label style={{ color: "#64748b" }}>
                     Fire min confidence
@@ -561,7 +561,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
             )}
 
             {ppeEnabled && (
-              <div className="aegis-subcard rounded-md p-3 space-y-2">
+              <div className="lumicams-subcard rounded-md p-3 space-y-2">
                 <label className="block text-[9px] tracking-widest" style={{ color: "#475569" }}>
                   PPE EQUIPMENT CHECKLIST (multi-select)
                 </label>
@@ -596,7 +596,7 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center text-[10px] pt-1">
-              <label className="aegis-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: "#94a3b8" }}>
+              <label className="lumicams-subcard rounded-md px-3 py-2 flex items-center gap-2 cursor-pointer" style={{ color: "#94a3b8" }}>
                 <input
                   type="checkbox"
                   checked={crowdLimitEnabled}
@@ -822,7 +822,7 @@ export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
         />
       )}
 
-      <div className="aegis-card overflow-hidden">
+      <div className="lumicams-card overflow-hidden">
         {/* Table header */}
         <div className="flex items-center justify-between px-5 py-3"
              style={{ borderBottom: "1px solid #1a2540" }}>
@@ -833,7 +833,7 @@ export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
           {isAdmin && (
             <button
               onClick={() => setModal("add")}
-              className="btn-aegis text-xs py-1.5"
+              className="btn-lumicams text-xs py-1.5"
             >
               <Plus className="w-3.5 h-3.5" /> ADD CAMERA
             </button>
@@ -841,7 +841,7 @@ export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full aegis-table">
+          <table className="w-full lumicams-table">
             <thead>
               <tr>
                 <th className="text-left">ID</th>

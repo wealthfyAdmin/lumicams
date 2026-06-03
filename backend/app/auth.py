@@ -1,7 +1,7 @@
 """
 auth.py
 -------
-JWT-based authentication and Role-Based Access Control (RBAC) for Aegis-Eye.
+JWT-based authentication and Role-Based Access Control (RBAC) for Lumicams.
 
 Flow:
   1. Client POSTs credentials to /api/auth/login.

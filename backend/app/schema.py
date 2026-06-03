@@ -1,7 +1,7 @@
 """
 schema.py
 ---------
-Pydantic v2 schemas (request / response models) for Aegis-Eye.
+Pydantic v2 schemas (request / response models) for Lumicams.
 
 Naming convention:
   - <Model>Create  : Input schema for POST endpoints.

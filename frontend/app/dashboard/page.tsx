@@ -112,7 +112,7 @@ export default function DashboardPage() {
         </div>
         <button
           onClick={refresh}
-          className="flex items-center gap-2 btn-aegis text-xs"
+          className="flex items-center gap-2 btn-lumicams text-xs"
           title="Refresh"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -144,7 +144,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid xl:grid-cols-2 gap-4">
-        <div className="aegis-card p-4">
+        <div className="lumicams-card p-4">
           <h3 className="text-xs font-bold tracking-widest flex items-center gap-2"
               style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}>
             <AlertTriangle className="w-4 h-4" /> RISK SNAPSHOT
@@ -158,7 +158,7 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
-        <div className="aegis-card p-4">
+        <div className="lumicams-card p-4">
           <h3 className="text-xs font-bold tracking-widest flex items-center gap-2"
               style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}>
             <Brain className="w-4 h-4" /> INTELLIGENT INSIGHTS
@@ -173,7 +173,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="aegis-card p-4">
+      <div className="lumicams-card p-4">
         <h3
           className="text-xs font-bold tracking-widest mb-2"
           style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -197,7 +197,7 @@ export default function DashboardPage() {
           LIVE FEEDS
         </h2>
         {loading ? (
-          <div className="aegis-card flex items-center justify-center py-12">
+          <div className="lumicams-card flex items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
               <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin"
                    style={{ color: "#00d4ff" }} />

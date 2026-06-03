@@ -25,7 +25,7 @@ export default function StatCard({ title, value, icon: Icon, color, subtitle, pu
 
   return (
     <div
-      className="aegis-card p-5 flex items-center gap-4 fade-in"
+      className="lumicams-card p-5 flex items-center gap-4 fade-in"
       style={{ borderColor: c.border, boxShadow: `0 0 20px ${c.glow}` }}
     >
       <div

@@ -74,7 +74,7 @@ export default function AlertsPage() {
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--dash-subtle)" }}>All AI-detected events</p>
         </div>
-        <button onClick={refresh} className="btn-aegis text-xs">
+        <button onClick={refresh} className="btn-lumicams text-xs">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           REFRESH
         </button>
@@ -114,9 +114,9 @@ export default function AlertsPage() {
       </div>
 
       {/* Table */}
-      <div className="aegis-card overflow-hidden">
+      <div className="lumicams-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full aegis-table">
+          <table className="w-full lumicams-table">
             <thead>
               <tr>
                 <th className="text-left">ID</th>

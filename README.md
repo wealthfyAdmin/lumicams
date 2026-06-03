@@ -34,8 +34,8 @@ This document covers **local development**, **VPS production** deployment, and *
 Create a database and user (example):
 
 ```sql
-CREATE USER aegis_user WITH PASSWORD 'your_secure_password';
-CREATE DATABASE aegis_eye OWNER aegis_user;
+CREATE USER lumicams_user WITH PASSWORD 'your_secure_password';
+CREATE DATABASE lumicams OWNER lumicams_user;
 ```
 
 ### 2. Backend
@@ -55,12 +55,12 @@ pip install -r requirements.txt
 Create `backend/.env` (minimal example — adjust paths and secrets):
 
 ```env
-DATABASE_URL=postgresql://aegis_user:your_secure_password@localhost:5432/aegis_eye
+DATABASE_URL=postgresql://lumicams_user:your_secure_password@localhost:5432/lumicams
 SECRET_KEY=use-a-long-random-string-in-production
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
-DEFAULT_ADMIN_EMAIL=admin@aegis.local
-DEFAULT_ADMIN_PASSWORD=ChangeMeOnFirstLogin
+DEFAULT_ADMIN_EMAIL=admin@lumicams.com
+DEFAULT_ADMIN_PASSWORD=Admin@123
 
 # Models (examples — use your actual filenames)
 PERSON_DETECT_MODEL=yolov5su.pt
@@ -129,12 +129,12 @@ Use PostgreSQL locally or a managed DB; set `DATABASE_URL` accordingly.
 
 ### 2. Deploy application
 
-Example layout: `/opt/aegis-eye` (clone or upload your release).
+Example layout: `/opt/lumicams` (clone or upload your release).
 
 **Backend**
 
 ```bash
-cd /opt/aegis-eye/backend
+cd /opt/lumicams/backend
 python3.12 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -153,7 +153,7 @@ Set `backend/.env` with production values:
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 proxy-headers
 ```
 
-Use **systemd** to keep it running (example unit `/etc/systemd/system/aegis-api.service`):
+Use **systemd** to keep it running (example unit `/etc/systemd/system/lumicams-api.service`):
 
 ```ini
 [Unit]
@@ -163,9 +163,9 @@ After=network.target postgresql.service
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/opt/aegis-eye/backend
-Environment=PATH=/opt/aegis-eye/backend/venv/bin
-ExecStart=/opt/aegis-eye/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers
+WorkingDirectory=/opt/lumicams/backend
+Environment=PATH=/opt/lumicams/backend/venv/bin
+ExecStart=/opt/lumicams/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers
 Restart=always
 
 [Install]
@@ -174,13 +174,13 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now aegis-api
+sudo systemctl enable --now lumicams-api
 ```
 
 **Frontend**
 
 ```bash
-cd /opt/aegis-eye/frontend
+cd /opt/lumicams/frontend
 npm ci
 ```
 
@@ -196,16 +196,16 @@ Build and run:
 npm run build
 ```
 
-Run with systemd (example `aegis-web.service`):
+Run with systemd (example `lumicams-web.service`):
 
 ```ini
 [Unit]
 Description=Lumicams Next.js
-After=network.target aegis-api.service
+After=network.target lumicams-api.service
 
 [Service]
 User=www-data
-WorkingDirectory=/opt/aegis-eye/frontend
+WorkingDirectory=/opt/lumicams/frontend
 ExecStart=/usr/bin/npm run start -- -p 3000
 Restart=always
 Environment=NODE_ENV=production
@@ -310,7 +310,7 @@ GPU runs PyTorch/ONNX workloads; CPU handles decode, tracking glue, and API.
 | `DATABASE_URL` | PostgreSQL connection string |
 | `SECRET_KEY` | JWT signing (must be strong in production) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins (frontend URLs) |
-| `ENVIRONMENT` / `AEGIS_ENV` | `production` → docs off by default; WebSocket JWT on by default |
+| `ENVIRONMENT` / `Lumicams_ENV` | `production` → docs off by default; WebSocket JWT on by default |
 | `DOCS_ENABLED` | `true`/`false` — override OpenAPI `/api/docs` visibility |
 | `WS_REQUIRE_TOKEN` | `true`/`false` — require JWT on `/ws/alerts` |
 | `TRUSTED_HOSTS` | Optional comma-separated Host headers (direct exposure) |

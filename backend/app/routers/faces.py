@@ -73,7 +73,7 @@ def face_module_status(
     _user: User = Depends(get_current_user),
 ):
     app = get_shared_face_app()
-    engine = getattr(app, "_aegis_engine", None) if app is not None else "none"
+    engine = getattr(app, "_lumicams_engine", None) if app is not None else "none"
     pipeline = os.getenv("FACE_RECOGNITION_ENABLED", "false").strip().lower() in (
         "1",
         "true",

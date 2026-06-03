@@ -84,15 +84,15 @@ export default function PpePage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="aegis-card p-4">
+        <div className="lumicams-card p-4">
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>CAMERAS WITH PPE ON</p>
           <p className="text-xl font-bold mt-1" style={{ color: "#34d399" }}>{activeCount}</p>
         </div>
-        <div className="aegis-card p-4">
+        <div className="lumicams-card p-4">
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>PPE ALERTS (RECENT)</p>
           <p className="text-xl font-bold mt-1" style={{ color: "#f59e0b" }}>{alerts.length}</p>
         </div>
-        <div className="aegis-card p-4 flex items-center gap-3">
+        <div className="lumicams-card p-4 flex items-center gap-3">
           <HardHat className="w-6 h-6" style={{ color: "#00d4ff" }} />
           <p className="text-xs" style={{ color: "var(--dash-body-text)" }}>
             Alerts trigger only for selected missing equipment.
@@ -101,7 +101,7 @@ export default function PpePage() {
       </div>
 
       {ppeStatus && (
-        <div className={`aegis-banner ${ppeStatus.model_loaded ? "aegis-banner--success" : "aegis-banner--warn"}`}>
+        <div className={`lumicams-banner ${ppeStatus.model_loaded ? "lumicams-banner--success" : "lumicams-banner--warn"}`}>
           {ppeStatus.model_loaded ? (
             <span>
               PPE engine is ready
@@ -118,7 +118,7 @@ export default function PpePage() {
         </div>
       )}
 
-      <div className="aegis-card p-5 space-y-4">
+      <div className="lumicams-card p-5 space-y-4">
         <h2 className="text-xs font-bold tracking-widest" style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}>
           CAMERA PPE SETTINGS
         </h2>
@@ -127,10 +127,10 @@ export default function PpePage() {
         ) : (
           <div className="space-y-3">
             {cameras.map((cam) => (
-              <div key={cam.id} className="aegis-subcard p-3 space-y-3">
+              <div key={cam.id} className="lumicams-subcard p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold aegis-text-title">{cam.name}</p>
+                    <p className="text-sm font-semibold lumicams-text-title">{cam.name}</p>
                     <p className="text-[10px]" style={{ color: "var(--dash-subtle)" }}>
                       Select missing safety equipment to trigger alerts
                     </p>
@@ -205,13 +205,13 @@ export default function PpePage() {
                           )
                         )
                       }
-                      className="aegis-field w-32"
+                      className="lumicams-field w-32"
                     />
                   </label>
                   <button
                     type="button"
                     onClick={() => saveCamera(cam)}
-                    className="btn-aegis text-xs px-3 py-2"
+                    className="btn-lumicams text-xs px-3 py-2"
                   >
                     <Save className="w-3.5 h-3.5" />
                     {savingId === cam.id ? "Saving..." : "Save"}
@@ -223,7 +223,7 @@ export default function PpePage() {
         )}
       </div>
 
-      <div className="aegis-card p-5">
+      <div className="lumicams-card p-5">
         <h2 className="text-xs font-bold tracking-widest mb-3" style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}>
           RECENT PPE ALERTS
         </h2>
@@ -235,7 +235,7 @@ export default function PpePage() {
         ) : (
           <div className="space-y-2">
             {alerts.slice(0, 20).map((a) => (
-              <div key={a.id} className="aegis-subcard p-3 text-xs">
+              <div key={a.id} className="lumicams-subcard p-3 text-xs">
                 <div className="flex items-center justify-between">
                   <p className="inline-flex items-center gap-1.5" style={{ color: "#f59e0b" }}>
                     <CheckCircle2 className="w-3.5 h-3.5" />

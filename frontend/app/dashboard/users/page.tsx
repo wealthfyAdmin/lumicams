@@ -66,7 +66,7 @@ function AddUserModal({ onClose, onSave }: { onClose: () => void; onSave: () => 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md mx-4 aegis-card p-6 z-10 fade-in">
+      <div className="relative w-full max-w-md mx-4 lumicams-card p-6 z-10 fade-in">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-sm font-bold tracking-widest"
               style={{ fontFamily: "var(--font-orbitron)", color: "var(--dash-body-text)" }}>
@@ -76,7 +76,7 @@ function AddUserModal({ onClose, onSave }: { onClose: () => void; onSave: () => 
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {[
-            { label: "EMAIL", value: email, set: setEmail, type: "email", placeholder: "user@aegis.local" },
+            { label: "EMAIL", value: email, set: setEmail, type: "email", placeholder: "user@lumicams.com" },
             { label: "FULL NAME", value: name, set: setName, type: "text", placeholder: "John Doe" },
             { label: "PASSWORD (min 8 chars)", value: password, set: setPassword, type: "password", placeholder: "••••••••" },
           ].map(({ label, value, set, type, placeholder }) => (
@@ -215,14 +215,14 @@ export default function UsersPage() {
               Lumicams platform admin, org admin, and operator roles
             </p>
           </div>
-          <button onClick={() => setShowModal(true)} className="btn-aegis text-xs">
+          <button onClick={() => setShowModal(true)} className="btn-lumicams text-xs">
             <Plus className="w-3.5 h-3.5" /> ADD USER
           </button>
         </div>
 
-        <div className="aegis-card overflow-hidden">
+        <div className="lumicams-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full aegis-table">
+            <table className="w-full lumicams-table">
               <thead>
                 <tr>
                   <th className="text-left">ID</th>

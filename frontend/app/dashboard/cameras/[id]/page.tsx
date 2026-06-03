@@ -89,13 +89,13 @@ export default function CameraAnalyticsPage() {
           <select
             value={hours}
             onChange={(e) => setHours(Number(e.target.value))}
-            className="text-xs px-2 py-1.5 rounded aegis-control"
+            className="text-xs px-2 py-1.5 rounded lumicams-control"
           >
             <option value={24}>Last 24h</option>
             <option value={72}>Last 72h</option>
             <option value={168}>Last 7d</option>
           </select>
-          <button onClick={load} className="btn-aegis text-xs">
+          <button onClick={load} className="btn-lumicams text-xs">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             REFRESH
           </button>
@@ -103,7 +103,7 @@ export default function CameraAnalyticsPage() {
       </div>
 
       {loading || !data ? (
-        <div className="aegis-card py-16 flex justify-center">
+        <div className="lumicams-card py-16 flex justify-center">
           <div
             className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin"
             style={{ color: "#00d4ff" }}
@@ -131,7 +131,7 @@ export default function CameraAnalyticsPage() {
               )}
             </div>
             <div
-              className="aegis-card overflow-hidden p-0 border shadow-lg"
+              className="lumicams-card overflow-hidden p-0 border shadow-lg"
               style={{ borderColor: "var(--dash-sidebar-border)", boxShadow: "0 0 40px rgba(0,212,255,0.06)" }}
             >
               <div className="relative w-full max-w-6xl mx-auto aspect-video max-h-[75vh] min-h-[280px]" style={{ background: "var(--dash-alerts-bg)" }}>
@@ -165,7 +165,7 @@ export default function CameraAnalyticsPage() {
                           : "Start the camera processor from the Cameras page to view AI overlays (boxes, ROI, footfall) here."}
                       </p>
                     </div>
-                    <Link href="/dashboard/cameras" className="btn-aegis text-xs mt-2">
+                    <Link href="/dashboard/cameras" className="btn-lumicams text-xs mt-2">
                       GO TO CAMERAS
                     </Link>
                   </div>
@@ -196,7 +196,7 @@ export default function CameraAnalyticsPage() {
               <Stat title="WEAPON ALERTS" value={data.summary.by_type?.Weapon ?? 0} icon={<Shield className="w-4 h-4" />} />
             </div>
 
-            <div className="aegis-card p-4">
+            <div className="lumicams-card p-4">
               <h2
                 className="text-xs font-bold tracking-widest mb-3"
                 style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -219,7 +219,7 @@ export default function CameraAnalyticsPage() {
               </div>
             </div>
 
-            <div className="aegis-card p-4">
+            <div className="lumicams-card p-4">
               <h2
                 className="text-xs font-bold tracking-widest mb-3"
                 style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -245,7 +245,7 @@ export default function CameraAnalyticsPage() {
               </div>
             </div>
 
-            <div className="aegis-card p-4">
+            <div className="lumicams-card p-4">
               <h2
                 className="text-xs font-bold tracking-widest mb-3 flex items-center gap-2"
                 style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -261,7 +261,7 @@ export default function CameraAnalyticsPage() {
               </ul>
             </div>
 
-            <div className="aegis-card p-4">
+            <div className="lumicams-card p-4">
               <h2
                 className="text-xs font-bold tracking-widest mb-3 flex items-center gap-2"
                 style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -316,7 +316,7 @@ export default function CameraAnalyticsPage() {
 
 function Stat({ title, value, icon }: { title: string; value: number | string; icon?: ReactNode }) {
   return (
-    <div className="aegis-card p-4">
+    <div className="lumicams-card p-4">
       <p className="text-xs tracking-widest flex items-center gap-1.5" style={{ color: "var(--dash-subtle)" }}>
         {icon} {title}
       </p>

@@ -1,4 +1,4 @@
--- Run once against your Aegis-Eye database if tables already existed before crowd analytics.
+-- Run once against your Lumicams database if tables already existed before crowd analytics.
 -- PostgreSQL 11+ (IF NOT EXISTS on ADD COLUMN)
 
 ALTER TABLE cameras ADD COLUMN IF NOT EXISTS footfall_enabled BOOLEAN NOT NULL DEFAULT TRUE;
