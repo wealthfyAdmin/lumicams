@@ -19,7 +19,7 @@ export const useThemeStore = create<ThemeState>()(
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
     }),
     {
-      name: "aegis-theme",
+      name: "lumicams-theme",
     }
   )
 );

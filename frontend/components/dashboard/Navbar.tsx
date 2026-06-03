@@ -58,11 +58,11 @@ export default function Navbar() {
           title="Alert logs & charts use this timezone (stored in this browser)"
         >
           <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: "#00d4ff" }} />
-          <label htmlFor="aegis-tz" className="sr-only">
+          <label htmlFor="lumicams-tz" className="sr-only">
             Display timezone
           </label>
           <select
-            id="aegis-tz"
+            id="lumicams-tz"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
             className="max-w-[118px] sm:max-w-[140px] rounded px-1 py-0.5 sm:px-1.5 sm:py-1 font-mono cursor-pointer outline-none text-[9px] sm:text-[10px]"

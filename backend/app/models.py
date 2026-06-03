@@ -1,7 +1,7 @@
 """
 models.py
 ---------
-SQLAlchemy ORM models for Aegis-Eye.
+SQLAlchemy ORM models for Lumicams.
 
 Tables:
   - users              : Platform users with RBAC roles.

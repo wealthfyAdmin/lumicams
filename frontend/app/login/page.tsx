@@ -27,7 +27,7 @@ export default function LoginPage() {
     try {
       const { access_token } = await loginUser(email, password);
       // Temporarily set cookie so getMe() request can auth
-      document.cookie = `aegis_token=${access_token}; path=/; max-age=3600; SameSite=Strict`;
+      document.cookie = `lumicams_token=${access_token}; path=/; max-age=3600; SameSite=Strict`;
       const user = await getMe();
       setAuth(access_token, user);
       router.push("/dashboard");
@@ -69,8 +69,8 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="aegis-card p-8">
-          <h2 className="text-lg font-semibold mb-6" style={{ color: "#94a3b8", letterSpacing: "0.08em" }}>
+        <div className="lumicams-card p-8">
+          <h2 className="text-md font-semibold mb-6" style={{ color: "#94a3b8", letterSpacing: "0.08em" }}>
             OPERATOR LOGIN
           </h2>
 
@@ -94,7 +94,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="operator@aegis.local"
+                placeholder="operator@lumicams.com"
                 className="w-full px-4 py-2.5 rounded-md text-sm outline-none transition-all"
                 style={{
                   background: "#080d1a",

@@ -51,7 +51,7 @@ export default function ActivityPage() {
             { label: "PPE EVENTS",    value: stats.by_type?.PPE ?? 0, color: "#f59e0b" },
             { label: "WEAPON EVENTS", value: stats.by_type?.Weapon ?? 0, color: "#ef4444" },
           ].map(({ label, value, color }) => (
-            <div key={label} className="aegis-card p-4 text-center">
+            <div key={label} className="lumicams-card p-4 text-center">
               <p className="text-2xl font-bold" style={{ fontFamily: "var(--font-orbitron)", color }}>
                 {value}
               </p>
@@ -64,7 +64,7 @@ export default function ActivityPage() {
       )}
 
       {/* Timeline */}
-      <div className="aegis-card overflow-hidden">
+      <div className="lumicams-card overflow-hidden">
         <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--dash-sidebar-border)" }}>
           <h2 className="text-xs font-bold tracking-widest"
               style={{ fontFamily: "var(--font-orbitron)", color: "var(--dash-body-text)" }}>

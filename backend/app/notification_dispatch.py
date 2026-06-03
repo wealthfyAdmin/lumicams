@@ -155,7 +155,6 @@ def get_or_create_notification_settings(
     logger.info("notification_settings row created (defaults from env where set)")
     return row
 
-
 def get_effective_notification_settings(
     db: Session,
     organization_id: Optional[int] = None,
@@ -218,7 +217,6 @@ def get_effective_notification_settings(
         eff.public_dashboard_url = global_settings.public_dashboard_url
 
     return eff
-
 
 def _normalize_e164_phone(raw: str) -> str:
     s = (raw or "").strip()
@@ -454,7 +452,7 @@ def send_ultramsg_text(
         data=payload,
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "AegisEye/1.0",
+            "User-Agent": "Lumicams/1.0",
         },
         method="POST",
     )

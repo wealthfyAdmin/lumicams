@@ -49,8 +49,8 @@ const config: Config = {
           DEFAULT:    "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Aegis-Eye brand colours
-        aegis: {
+        // Lumicams brand colours
+        lumicams: {
           cyan:       "#00d4ff",
           "cyan-dim": "#0099bb",
           fire:       "#ff4500",
@@ -98,7 +98,7 @@ const config: Config = {
       backgroundImage: {
         "grid-pattern":
           "linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px)",
-        "aegis-gradient":
+        "lumicams-gradient":
           "linear-gradient(135deg, #0a0f1e 0%, #0d1527 50%, #0a1628 100%)",
       },
       backgroundSize: {

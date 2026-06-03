@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import sys
 import threading
 import time
 import urllib.request
@@ -19,23 +20,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Optional heavy dependencies
 # ---------------------------------------------------------------------------
-
-# Disable Ultralytics' auto-update / settings-check network calls.
-# Without this, every import attempts to fetch lap>=0.5.12 and spams
-# "AutoUpdate skipped (offline)" / "requirement not found" warnings.
-os.environ.setdefault("YOLO_AUTOINSTALL", "False")
-os.environ.setdefault("ULTRALYTICS_AUTO_UPDATE", "False")
-
-# Optimize OpenCV/FFMPEG RTSP stream parameters for zero latency and real-time streaming
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay"
-
-try:
-    # Suppress the settings-write that triggers the update checker.
-    import ultralytics.utils as _ult_utils  # noqa: F401
-    if hasattr(_ult_utils, "SETTINGS"):
-        _ult_utils.SETTINGS.update({"sync": False})  # type: ignore[attr-defined]
-except Exception:
-    pass
 
 try:
     from ultralytics import YOLO
@@ -76,7 +60,9 @@ except ImportError:
             _MP_AVAILABLE = True
             _MP_BACKEND = "legacy"
     except ImportError:
-        logger.warning("mediapipe not installed – fall detection disabled.")
+        logger.info(
+            "MediaPipe not installed (normal on Python 3.13+); fall uses YOLO pose when ultralytics is available."
+        )
 
 
 def _yolo_class_id_by_name(yolo_model, name: str) -> Optional[int]:
@@ -106,36 +92,76 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_POSE_MODEL = _BACKEND_ROOT / "models" / "pose_landmarker_lite.task"
 POSE_LANDMARKER_MODEL_PATH = Path(os.getenv("MEDIAPIPE_POSE_MODEL", str(_DEFAULT_POSE_MODEL)))
 POSE_LANDMARKER_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
+# YOLO pose (Ultralytics) — works on Python 3.13+ / 3.14 where MediaPipe has no wheel.
+POSE_YOLO_MODEL: str = os.getenv("POSE_YOLO_MODEL", "models/yolo11n-pose.pt")
+POSE_YOLO_CONF: float = float(os.getenv("POSE_YOLO_CONF", "0.5"))
+POSE_YOLO_IMGSZ: int = int(os.getenv("POSE_YOLO_IMGSZ", "640"))
+# auto | mediapipe | yolo — on 3.13+ default is yolo when MediaPipe is unavailable.
+POSE_BACKEND_PREF: str = os.getenv("POSE_BACKEND", "auto").strip().lower()
+_USE_YOLO_POSE_FIRST: bool = POSE_BACKEND_PREF == "yolo" or (
+    POSE_BACKEND_PREF == "auto" and sys.version_info >= (3, 13)
+)
+# Skeleton joint indices per backend (normalized x,y + visibility).
+_POSE_MP_JOINTS: Dict[str, int] = {"nose": 0, "l_sh": 11, "r_sh": 12, "l_hp": 23, "r_hp": 24}
+_POSE_YOLO_JOINTS: Dict[str, int] = {"nose": 0, "l_sh": 5, "r_sh": 6, "l_hp": 11, "r_hp": 12}
 
 # --- Footfall / heatmap (YOLO COCO person class 0) ---
 # yolov8m.pt = better recall in crowds; yolov8n.pt = faster CPU
 FOOTFALL_YOLO_MODEL: str = os.getenv("FOOTFALL_YOLO_MODEL", "yolo11n.pt")
 PERSON_DETECT_MODEL: str = os.getenv("PERSON_DETECT_MODEL", FOOTFALL_YOLO_MODEL)
 PEOPLE_TRACKER_BACKEND: str = os.getenv("PEOPLE_TRACKER_BACKEND", "bytetrack").strip().lower()
-FOOTFALL_PERSON_CONF: float = float(os.getenv("FOOTFALL_PERSON_CONF", "0.25"))
+FOOTFALL_PERSON_CONF: float = float(os.getenv("FOOTFALL_PERSON_CONF", "0.38"))
 FOOTFALL_INFER_IMGSZ: int = int(os.getenv("FOOTFALL_INFER_IMGSZ", "640"))
 INFER_EVERY_N_FRAMES: int = int(os.getenv("INFER_EVERY_N_FRAMES", "2"))
-# Lowered for dense crowd scenes where distant/partially-occluded people are small.
-PERSON_MIN_BOX_AREA_NORM: float = float(os.getenv("PERSON_MIN_BOX_AREA_NORM", "0.00035"))
-PERSON_MIN_BOX_HEIGHT_NORM: float = float(os.getenv("PERSON_MIN_BOX_HEIGHT_NORM", "0.025"))
+PERSON_MIN_BOX_AREA_NORM: float = float(os.getenv("PERSON_MIN_BOX_AREA_NORM", "0.00115"))
+PERSON_MIN_BOX_HEIGHT_NORM: float = float(os.getenv("PERSON_MIN_BOX_HEIGHT_NORM", "0.052"))
 PERSON_MAX_BOX_ASPECT: float = float(os.getenv("PERSON_MAX_BOX_ASPECT", "2.2"))
 # Min width/height of bbox (COCO person). Helps drop spurious vertical slivers; 0 = off.
-PERSON_MIN_W_OVER_H: float = float(os.getenv("PERSON_MIN_W_OVER_H", "0.18"))
+PERSON_MIN_W_OVER_H: float = float(os.getenv("PERSON_MIN_W_OVER_H", "0.2"))
 # Stricter per-box score for counting (reduces chair / clutter false positives vs FOOTFALL_PERSON_CONF).
-PERSON_COUNT_CONF_MIN: float = float(os.getenv("PERSON_COUNT_CONF_MIN", "0.28"))
+PERSON_COUNT_CONF_MIN: float = float(os.getenv("PERSON_COUNT_CONF_MIN", "0.42"))
 # Merge overlapping person boxes (same person detected twice); lower = stricter merge.
 PERSON_DEDUPE_IOU: float = float(os.getenv("PERSON_DEDUPE_IOU", "0.45"))
-# Raised significantly for busy crowd scenes (100+ people in frame).
 FOOTFALL_YOLO_MAX_DET: int = max(1, int(os.getenv("FOOTFALL_YOLO_MAX_DET", "50")))
 # Extra floor on per-detection score after global conf filter (reduces weak boxes).
 PERSON_MIN_PER_BOX_CONF: float = float(os.getenv("PERSON_MIN_PER_BOX_CONF", "0.0"))
 
-FIRE_CONF_THRESHOLD: float = float(os.getenv("FIRE_CONF_THRESHOLD", "0.60"))
-FIRE_MIN_AREA_NORM: float = float(os.getenv("FIRE_MIN_AREA_NORM", "0.0015"))
-FIRE_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FIRE_CONSECUTIVE_FRAMES", "3")))
+FIRE_CONF_THRESHOLD: float = float(os.getenv("FIRE_CONF_THRESHOLD", "0.35"))
+# Ultralytics pre-filter; keep low so smoke-only models (often ~0.1–0.2 conf) still return boxes.
+FIRE_YOLO_PREDICT_CONF: float = float(os.getenv("FIRE_YOLO_PREDICT_CONF", "0.10"))
+FIRE_YOLO_IMGSZ: int = int(os.getenv("FIRE_YOLO_IMGSZ", "640"))
+FIRE_USE_HSV_WITH_YOLO: bool = os.getenv("FIRE_USE_HSV_WITH_YOLO", "true").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
+# HSV-only path: reject logos/UI (bright white + blue) — warm orange/red must dominate the mask.
+FIRE_HSV_MIN_WARM_FRAC: float = float(os.getenv("FIRE_HSV_MIN_WARM_FRAC", "0.38"))
+FIRE_HSV_MAX_BLUE_FRAC: float = float(os.getenv("FIRE_HSV_MAX_BLUE_FRAC", "0.22"))
+FIRE_HSV_MAX_CONF: float = float(os.getenv("FIRE_HSV_MAX_CONF", "0.55"))
+FIRE_MIN_AREA_NORM: float = float(os.getenv("FIRE_MIN_AREA_NORM", "0.0010"))
+FIRE_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FIRE_CONSECUTIVE_FRAMES", "2")))
 FIRE_ALLOWED_CLASS_NAMES: tuple[str, ...] = tuple(
     x.strip().lower()
     for x in os.getenv("FIRE_ALLOWED_CLASS_NAMES", "fire,smoke,flame").split(",")
+    if x.strip()
+)
+FIRE_MODEL_CANDIDATES: tuple[str, ...] = tuple(
+    x.strip()
+    for x in os.getenv(
+        "FIRE_MODEL_CANDIDATES",
+        "models/fire.pt,models/fire_yolov8n.pt,models/fire_smoke.pt,"
+        "fire.pt,models/best_fire.pt",
+    ).split(",")
+    if x.strip()
+)
+# Generic COCO checkpoints must not be used for fire (no fire/smoke classes).
+FIRE_SKIP_GENERIC_YOLO_NAMES: tuple[str, ...] = tuple(
+    x.strip().lower()
+    for x in os.getenv(
+        "FIRE_SKIP_GENERIC_YOLO_NAMES",
+        "yolo11n.pt,yolo11s.pt,yolov5su.pt,yolov8n.pt,yolov8s.pt,yolov8m.pt",
+    ).split(",")
     if x.strip()
 )
 PPE_MODEL_PATH: str = os.getenv("YOLO_PPE_MODEL", "ppe.pt")
@@ -239,33 +265,16 @@ def _refine_weapon_display_label(raw_lbl: str, x1: int, y1: int, x2: int, y2: in
 
 
 # Legacy width/height of full pose bbox; used only when torso is ambiguous (not for upright rejection).
-FALL_RATIO_THRESHOLD: float = float(os.getenv("FALL_RATIO_THRESHOLD", "1.15"))
+FALL_RATIO_THRESHOLD: float = float(os.getenv("FALL_RATIO_THRESHOLD", "1.65"))
 POSE_DETECTION_CONF: float = float(os.getenv("POSE_DETECTION_CONF", "0.5"))
 # Torso: shoulder-mid to hip-mid must be mostly vertical (|dy|/norm) to count as upright/seated.
-FALL_MIN_UPRIGHT_VERTICALITY: float = float(os.getenv("FALL_MIN_UPRIGHT_VERTICALITY", "0.55"))
+FALL_MIN_UPRIGHT_VERTICALITY: float = float(os.getenv("FALL_MIN_UPRIGHT_VERTICALITY", "0.42"))
 # If shoulder–hip vertical separation (norm coords) is at least this, hips are clearly below shoulders → not a fall.
-FALL_MIN_SHOULDER_HIP_DY_NORM: float = float(os.getenv("FALL_MIN_SHOULDER_HIP_DY_NORM", "0.08"))
+FALL_MIN_SHOULDER_HIP_DY_NORM: float = float(os.getenv("FALL_MIN_SHOULDER_HIP_DY_NORM", "0.055"))
 # If |dy| is tiny (e.g. overhead camera), use head-vs-hips: head above hips → not a fall.
-FALL_AMBIGUOUS_DY_NORM: float = float(os.getenv("FALL_AMBIGUOUS_DY_NORM", "0.025"))
+FALL_AMBIGUOUS_DY_NORM: float = float(os.getenv("FALL_AMBIGUOUS_DY_NORM", "0.048"))
 # Require this many consecutive “fall candidate” frames before alerting (reduces flicker / false positives).
-FALL_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FALL_CONSECUTIVE_FRAMES", "3")))
-
-# YOLO-based fall detector (overhead / bird-eye views where MediaPipe returns no landmarks)
-# Person bbox width/height aspect >= this means body is horizontal -> fall candidate.
-FALL_YOLO_ASPECT_THRESHOLD: float = float(os.getenv("FALL_YOLO_ASPECT_THRESHOLD", "1.4"))
-# Min YOLO person confidence to consider for fall analysis.
-FALL_YOLO_PERSON_CONF: float = float(os.getenv("FALL_YOLO_PERSON_CONF", "0.18"))
-# Min person bbox area as fraction of frame area (filters tiny distant blobs).
-FALL_YOLO_MIN_AREA_NORM: float = float(os.getenv("FALL_YOLO_MIN_AREA_NORM", "0.00015"))
-# Consecutive frames a person bbox stays horizontal before triggering.
-FALL_YOLO_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FALL_YOLO_CONSECUTIVE_FRAMES", "2")))
-# Inference image size for the YOLO fall detector.
-# 640 is fast enough for close/medium cameras; set to 1280 via env only if on GPU or for distant overhead cams.
-FALL_YOLO_IMGSZ: int = int(os.getenv("FALL_YOLO_IMGSZ", "640"))
-# Run fall detection every N inference frames (independent of INFER_EVERY_N_FRAMES so other
-# detectors like fire are not slowed down by the heavier fall path).
-# E.g. INFER_EVERY_N_FRAMES=2, FALL_INFER_EVERY_N=2 → fall runs every 4th raw frame.
-FALL_INFER_EVERY_N: int = max(1, int(os.getenv("FALL_INFER_EVERY_N", "2")))
+FALL_CONSECUTIVE_FRAMES: int = max(1, int(os.getenv("FALL_CONSECUTIVE_FRAMES", "5")))
 # Draw shoulder–hip line + label on MJPEG preview when pose is available.
 FALL_DRAW_POSE_OVERLAY: bool = os.getenv("FALL_DRAW_POSE_OVERLAY", "true").strip().lower() in (
     "1",
@@ -348,6 +357,163 @@ def _normalize_ppe_item_token(item: object) -> Optional[str]:
         "safetyshoes": "boots",
     }
     return aliases.get(s, s)
+
+
+def _fire_class_ids_from_names(names: object) -> set[int]:
+    """Return YOLO class indices whose labels match FIRE_ALLOWED_CLASS_NAMES."""
+    ids: set[int] = set()
+    if isinstance(names, dict):
+        for i, n in names.items():
+            label = str(n).strip().lower()
+            if any(label == target or target in label for target in FIRE_ALLOWED_CLASS_NAMES):
+                ids.add(int(i))
+    elif isinstance(names, list):
+        for i, n in enumerate(names):
+            label = str(n).strip().lower()
+            if any(label == target or target in label for target in FIRE_ALLOWED_CLASS_NAMES):
+                ids.add(int(i))
+    return ids
+
+
+def _is_generic_coco_fire_path(path: Path) -> bool:
+    return path.name.lower() in FIRE_SKIP_GENERIC_YOLO_NAMES
+
+
+def _iter_fire_model_candidate_paths() -> List[Path]:
+    """Ordered fire-weight paths; skips generic COCO filenames unless explicitly configured."""
+    candidates: List[Path] = []
+    seen: set[str] = set()
+
+    def add(p: Path) -> None:
+        if not p.name.lower().endswith(".pt"):
+            return
+        key = str(p.resolve()) if p.exists() else str(p)
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append(p)
+
+    env_primary = Path(YOLO_MODEL_PATH)
+    add(env_primary)
+    if not env_primary.is_absolute():
+        add(_BACKEND_ROOT / env_primary)
+
+    for raw in FIRE_MODEL_CANDIDATES:
+        cp = Path(raw)
+        add(cp)
+        if not cp.is_absolute():
+            add(_BACKEND_ROOT / cp)
+
+    for pat in ("*fire*.pt", "*smoke*.pt"):
+        for p in sorted((_BACKEND_ROOT / "models").glob(pat)):
+            add(p)
+
+    # Legacy fallbacks only when primary env path is not a generic COCO name
+    if not _is_generic_coco_fire_path(env_primary):
+        for legacy in (
+            _BACKEND_ROOT / "yolo11n.pt",
+            _BACKEND_ROOT / "yolo11s.pt",
+            _BACKEND_ROOT / "yolov8n.pt",
+            _BACKEND_ROOT / "yolov8s.pt",
+        ):
+            add(legacy)
+
+    # Drop generic COCO weights unless user explicitly set YOLO_FIRE_MODEL to that file
+    explicit_generic = _is_generic_coco_fire_path(env_primary)
+    out: List[Path] = []
+    for p in candidates:
+        if _is_generic_coco_fire_path(p) and not (
+            explicit_generic and p.name.lower() == env_primary.name.lower()
+        ):
+            continue
+        out.append(p)
+    return out
+
+
+def _try_load_fire_yolo(path: Path) -> Tuple[Optional[object], Optional[set[int]]]:
+    """Load YOLO weights if they contain fire/smoke class labels."""
+    if not _YOLO_AVAILABLE or not path.is_file():
+        return None, None
+    try:
+        model = YOLO(str(path))
+        class_ids = _fire_class_ids_from_names(getattr(model, "names", None))
+        if not class_ids:
+            logger.warning(
+                "Skipping %s for fire: no classes in %s",
+                path,
+                FIRE_ALLOWED_CLASS_NAMES,
+            )
+            return None, None
+        return model, class_ids
+    except Exception as exc:
+        logger.warning("Fire YOLO load failed for %s: %s", path, exc)
+        return None, None
+
+
+def _resolve_fire_yolo() -> Tuple[Optional[object], Optional[set[int]], Optional[str]]:
+    """First valid fire/smoke YOLO checkpoint, else HSV-only."""
+    checked: List[str] = []
+    for path in _iter_fire_model_candidate_paths():
+        checked.append(str(path))
+        if not path.is_file():
+            continue
+        model, class_ids = _try_load_fire_yolo(path)
+        if model is not None and class_ids:
+            logger.info(
+                "Fire YOLO ready: %s (class ids=%s, labels=%s)",
+                path,
+                class_ids,
+                FIRE_ALLOWED_CLASS_NAMES,
+            )
+            return model, class_ids, str(path.resolve())
+    logger.warning(
+        "No fire/smoke YOLO weights found. Checked: %s. "
+        "Run: python scripts/download_fire_model.py — using HSV color fallback.",
+        ", ".join(checked[:12]) + ("..." if len(checked) > 12 else ""),
+    )
+    return None, None, None
+
+
+class _NormLandmark:
+    """Normalized landmark (x,y in 0–1) compatible with fall detection + overlay."""
+
+    __slots__ = ("x", "y", "visibility")
+
+    def __init__(self, x: float, y: float, visibility: float = 1.0) -> None:
+        self.x = float(x)
+        self.y = float(y)
+        self.visibility = float(visibility)
+
+
+def _resolve_pose_yolo_path() -> Optional[Path]:
+    candidates: List[Path] = []
+    seen: set[str] = set()
+
+    def add(p: Path) -> None:
+        key = str(p.resolve()) if p.exists() else str(p)
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append(p)
+
+    primary = Path(POSE_YOLO_MODEL)
+    add(primary)
+    if not primary.is_absolute():
+        add(_BACKEND_ROOT / primary)
+    for name in ("yolo11n-pose.pt", "yolov8n-pose.pt", "yolo11s-pose.pt"):
+        add(_BACKEND_ROOT / "models" / name)
+        add(_BACKEND_ROOT / name)
+    return next((p for p in candidates if p.is_file()), candidates[0] if candidates else None)
+
+
+def _iter_pose_yolo_load_paths() -> List[str]:
+    """Paths to pass to YOLO(); missing files trigger Ultralytics auto-download."""
+    p = _resolve_pose_yolo_path()
+    if p is None:
+        return [POSE_YOLO_MODEL]
+    if p.is_file():
+        return [str(p.resolve())]
+    return [str(p), POSE_YOLO_MODEL]
 
 
 def _ensure_pose_landmarker_model() -> Optional[Path]:
@@ -625,8 +791,6 @@ class VideoProcessor:
         self._last_footfall_cross_ts: Dict[int, float] = {}
         self._fire_consecutive = 0
         self._fall_consecutive = 0
-        # per-track YOLO fall consecutive counter {track_or_box_key: int}
-        self._fall_yolo_consecutive: Dict[str, int] = {}
         self._fire_enabled = True
         self._fall_enabled = True
         self._face_enabled = True
@@ -658,52 +822,36 @@ class VideoProcessor:
         self._bt_prev_points: Dict[int, Tuple[float, float]] = {}
         self._bt_last_seen: Dict[int, float] = {}
 
-        # Fire model
+        # Fire model (must contain fire/smoke classes — generic COCO .pt is skipped)
         self._fire_model = None
         self._fire_class_ids: Optional[set[int]] = None
-        fire_candidates = [
-            Path(YOLO_MODEL_PATH),
-            _BACKEND_ROOT / "yolo11n.pt",
-            _BACKEND_ROOT / "yolo11s.pt",
-            _BACKEND_ROOT / "yolov5su.pt",
-            _BACKEND_ROOT / "yolov8n.pt",
-            _BACKEND_ROOT / "yolov8m.pt",
-        ]
-        fire_model_path = next((p for p in fire_candidates if p.exists()), None)
-        if _YOLO_AVAILABLE and fire_model_path:
-            try:
-                self._fire_model = YOLO(str(fire_model_path))
-                logger.info("Fire YOLO model ready: %s", fire_model_path)
-                names = getattr(self._fire_model, "names", None)
-                if isinstance(names, dict):
-                    ids = {
-                        int(i)
-                        for i, n in names.items()
-                        if str(n).strip().lower() in FIRE_ALLOWED_CLASS_NAMES
-                    }
-                    self._fire_class_ids = ids if ids else set()
-                elif isinstance(names, list):
-                    ids = {
-                        int(i)
-                        for i, n in enumerate(names)
-                        if str(n).strip().lower() in FIRE_ALLOWED_CLASS_NAMES
-                    }
-                    self._fire_class_ids = ids if ids else set()
-                else:
-                    self._fire_class_ids = None
-                if self._fire_class_ids == set():
-                    logger.warning(
-                        "Fire model has no classes matching %s; switching to HSV fallback only.",
-                        ",".join(FIRE_ALLOWED_CLASS_NAMES),
-                    )
-                    self._fire_model = None
-            except Exception as exc:
-                logger.error("Fire YOLO load failed: %s", exc)
-        elif _YOLO_AVAILABLE:
-            logger.warning(
-                "Fire YOLO model not found. Checked: %s",
-                ", ".join(str(p) for p in fire_candidates),
-            )
+        self._fire_model_resolved_path: Optional[str] = None
+        self._fire_backend = "hsv"
+        if _YOLO_AVAILABLE:
+            fm, fids, fpath = _resolve_fire_yolo()
+            if fm is not None and fids:
+                self._fire_model = fm
+                self._fire_class_ids = fids
+                self._fire_model_resolved_path = fpath
+                self._fire_backend = "yolo"
+                raw_names = getattr(fm, "names", None)
+                labels = (
+                    [str(raw_names[k]).lower() for k in raw_names]
+                    if isinstance(raw_names, dict)
+                    else [str(x).lower() for x in raw_names]
+                    if isinstance(raw_names, list)
+                    else []
+                )
+                if labels and all("smoke" in x for x in labels) and not any("fire" in x for x in labels):
+                    if self._fire_conf_threshold > 0.2:
+                        logger.warning(
+                            "Fire model is smoke-only (%s) but FIRE_CONF_THRESHOLD=%.2f is high; "
+                            "detections are often 0.10–0.20. Set FIRE_CONF_THRESHOLD=0.12 in .env.",
+                            labels,
+                            self._fire_conf_threshold,
+                        )
+        else:
+            logger.warning("YOLO not available; fire detection will use HSV fallback only")
 
         self._ppe_model = None
         self._ppe_model_resolved_path: Optional[str] = None
@@ -837,10 +985,16 @@ class VideoProcessor:
 
         # Person model (footfall + heatmap) — must not crash pipeline if weights missing
         self._person_model = None
+        self._person_class_id: Optional[int] = None
         if _YOLO_AVAILABLE:
             try:
                 self._person_model = YOLO(PERSON_DETECT_MODEL)
                 logger.info("Person model ready: %s (tracker=%s)", PERSON_DETECT_MODEL, self._track_backend)
+                self._person_class_id = _yolo_class_id_by_name(self._person_model, "person")
+                if self._person_class_id is None:
+                    logger.info(
+                        "Person model loaded but no class named 'person' was found; fall fallback may be unavailable."
+                    )
             except Exception as exc:
                 logger.warning(
                     "Person model not loaded (%s). Set PERSON_DETECT_MODEL / FOOTFALL_YOLO_MODEL.",
@@ -884,7 +1038,7 @@ class VideoProcessor:
 
                 self._face_app = get_shared_face_app()
                 if self._face_app is not None:
-                    eng = getattr(self._face_app, "_aegis_engine", "unknown")
+                    eng = getattr(self._face_app, "_lumicams_engine", "unknown")
                     logger.info("Face recognition backend ready (%s).", eng)
                 else:
                     logger.warning(
@@ -895,7 +1049,38 @@ class VideoProcessor:
                 logger.warning("Face recognition init failed: %s", exc)
 
         self._pose = None
-        if _MP_BACKEND == "tasks":
+        self._pose_legacy = None
+        self._pose_yolo = None
+        self._pose_yolo_resolved_path: Optional[str] = None
+        self._pose_backend: Optional[str] = None
+        self._pose_joints: Dict[str, int] = dict(_POSE_MP_JOINTS)
+
+        def _init_yolo_pose() -> bool:
+            if not _YOLO_AVAILABLE:
+                return False
+            for load_path in _iter_pose_yolo_load_paths():
+                try:
+                    self._pose_yolo = YOLO(load_path)
+                    self._pose_yolo_resolved_path = load_path
+                    self._pose_backend = "yolo_pose"
+                    self._pose_joints = dict(_POSE_YOLO_JOINTS)
+                    logger.info(
+                        "Fall pose backend ready (YOLO pose, Python %s): %s",
+                        sys.version.split()[0],
+                        load_path,
+                    )
+                    return True
+                except Exception as exc:
+                    logger.warning("YOLO pose load failed for %s: %s", load_path, exc)
+            return False
+
+        if _USE_YOLO_POSE_FIRST:
+            if not _init_yolo_pose():
+                logger.warning("YOLO pose unavailable; will try MediaPipe if installed.")
+        elif POSE_BACKEND_PREF == "yolo":
+            _init_yolo_pose()
+
+        if self._pose_yolo is None and POSE_BACKEND_PREF != "yolo" and _MP_BACKEND == "tasks":
             m_path = _ensure_pose_landmarker_model()
             if m_path:
                 try:
@@ -905,8 +1090,36 @@ class VideoProcessor:
                         min_pose_detection_confidence=POSE_DETECTION_CONF,
                     )
                     self._pose = _PoseLandmarker.create_from_options(opts)
+                    self._pose_backend = "mediapipe_tasks"
+                    self._pose_joints = dict(_POSE_MP_JOINTS)
+                    logger.info("Fall pose backend ready (MediaPipe tasks): %s", m_path)
                 except Exception as exc:
                     logger.error("Pose landmarker failed: %s", exc)
+        if (
+            self._pose_yolo is None
+            and self._pose is None
+            and POSE_BACKEND_PREF != "yolo"
+            and _MP_AVAILABLE
+            and _mp_pose is not None
+        ):
+            try:
+                self._pose_legacy = _mp_pose.Pose(
+                    static_image_mode=False,
+                    model_complexity=0,
+                    min_detection_confidence=POSE_DETECTION_CONF,
+                )
+                self._pose_backend = "mediapipe_legacy"
+                self._pose_joints = dict(_POSE_MP_JOINTS)
+                logger.info("Fall pose backend ready (MediaPipe legacy solutions.pose)")
+            except Exception as exc:
+                logger.warning("MediaPipe legacy pose init failed: %s", exc)
+
+        if self._pose_yolo is None and self._pose is None and self._pose_legacy is None:
+            if not _init_yolo_pose():
+                logger.warning(
+                    "Fall detection: no pose backend (install ultralytics; "
+                    "POSE_YOLO_MODEL=models/yolo11n-pose.pt). Using person-bbox fallback."
+                )
 
         self._footfall_enabled = True
         self._heatmap_enabled = True
@@ -930,11 +1143,6 @@ class VideoProcessor:
         self._heatmap_cells = np.zeros((HEATMAP_GRID_SIZE, HEATMAP_GRID_SIZE), dtype=np.int64)
         self._last_heatmap_flush = time.time()
         self._heatmap_hour_bucket: Optional[datetime] = None
-
-        self._live_frame_lock = threading.Lock()
-        self._latest_live_frame = None
-        self._latest_live_frame_ret = False
-        self._latest_live_frame_id = 0
 
         self._preview_lock = threading.Lock()
         self._preview_jpeg: Optional[bytes] = None
@@ -1042,6 +1250,14 @@ class VideoProcessor:
                     if fire_min_conf is not None
                     else FIRE_CONF_THRESHOLD
                 )
+                logger.info(
+                    "Camera %s fire settings: enabled=%s threshold=%.3f backend=%s path=%s",
+                    self.camera_id,
+                    self._fire_enabled,
+                    self._fire_conf_threshold,
+                    self._fire_backend,
+                    self._fire_model_resolved_path or "HSV",
+                )
                 fall_req = getattr(cam, "fall_consecutive_frames", None)
                 self._fall_consecutive_required = (
                     max(1, int(fall_req)) if fall_req is not None else FALL_CONSECUTIVE_FRAMES
@@ -1110,41 +1326,16 @@ class VideoProcessor:
 
     def _run_loop(self):
         self._update_camera_status("active")
-        is_live = self.rtsp_url.startswith(("rtsp://", "rtsps://", "rtmp://", "http://", "https://"))
-        if is_live:
-            def live_reader():
-                while not self._stop_event.is_set():
-                    source = self.rtsp_url
-                    cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
-                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                    if not cap.isOpened():
-                        self._stop_event.wait(STREAM_RECONNECT_DELAY)
-                        continue
-                    while not self._stop_event.is_set() and cap.isOpened():
-                        ret, frame = cap.read()
-                        if not ret:
-                            break
-                        with self._live_frame_lock:
-                            self._latest_live_frame = frame
-                            self._latest_live_frame_ret = ret
-                            self._latest_live_frame_id += 1
-                    cap.release()
-                    self._stop_event.wait(2.0)
-            
-            reader_thread = threading.Thread(target=live_reader, daemon=True)
-            reader_thread.start()
-            self._process_stream(None)
-        else:
-            while not self._stop_event.is_set():
-                source = self.rtsp_url
-                if os.path.exists(source):
-                    source = os.path.abspath(source)
-                cap = cv2.VideoCapture(source)
-                if not cap.isOpened():
-                    self._stop_event.wait(STREAM_RECONNECT_DELAY)
-                    continue
-                self._process_stream(cap)
-                cap.release()
+        while not self._stop_event.is_set():
+            source = self.rtsp_url
+            if not source.startswith(("rtsp://", "rtsps://", "http://", "https://")) and os.path.exists(source):
+                source = os.path.abspath(source)
+            cap = cv2.VideoCapture(source)
+            if not cap.isOpened():
+                self._stop_event.wait(STREAM_RECONNECT_DELAY)
+                continue
+            self._process_stream(cap)
+            cap.release()
         self._update_camera_status("inactive")
 
     def _needs_person_inference(self) -> bool:
@@ -1524,33 +1715,25 @@ class VideoProcessor:
             )
             self._queue_high_consecutive = 0
 
-    def _process_stream(self, cap: Optional[cv2.VideoCapture]) -> None:
+    def _process_stream(self, cap: cv2.VideoCapture) -> None:
+        logger.info(
+            "StreamProcessor._process_stream START: cam=%s url=%s fire_enabled=%s consecutive_req=%s",
+            self.camera_id,
+            self.rtsp_url[:50] if self.rtsp_url else None,
+            self._fire_enabled,
+            FIRE_CONSECUTIVE_FRAMES,
+        )
         self._refresh_camera_analytics_settings()
         frame_idx = 0
-        fall_infer_counter = 0   # separate cadence for the heavy fall detector
         settings_counter = 0
-        is_live = cap is None
-        is_file = not is_live and not self.rtsp_url.startswith(("rtsp://", "rtmp://", "http://", "https://"))
-        last_processed_frame_id = -1
-        
+        is_file = not self.rtsp_url.startswith(("rtsp://", "rtmp://", "http://", "https://"))
         while not self._stop_event.is_set():
-            if is_live:
-                time.sleep(0.005)
-                with self._live_frame_lock:
-                    frame_id = self._latest_live_frame_id
-                    frame = self._latest_live_frame
-                    ret = self._latest_live_frame_ret
-                if not ret or frame is None or frame_id == last_processed_frame_id:
+            ret, frame = cap.read()
+            if not ret:
+                if is_file:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
-                last_processed_frame_id = frame_id
-                frame = frame.copy()
-            else:
-                ret, frame = cap.read()
-                if not ret:
-                    if is_file:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        continue
-                    break
+                break
 
             frame_idx += 1
             settings_counter += 1
@@ -1558,18 +1741,34 @@ class VideoProcessor:
                 settings_counter = 0
                 self._refresh_camera_analytics_settings()
 
-            if frame_idx % INFER_EVERY_N_FRAMES != 0:
-                # Still push the raw frame so the MJPEG preview runs at full camera FPS.
-                self._publish_preview(frame)
-                continue
+            # Keep pose landmarks fresh for fall overlay + detection when fall module is on
+            if self._fall_enabled:
+                self._update_pose_landmarks(frame)
 
+            # Publish preview immediately for smooth MJPEG stream
+            # (heavy modules except fire run on every Nth frame)
+            self._publish_preview(frame)
+
+            # Fire detection runs on EVERY frame for immediate response
             fire_conf = self._detect_fire(frame) if self._fire_enabled else None
             if self._fire_enabled:
                 if fire_conf:
                     self._fire_consecutive += 1
                 else:
                     self._fire_consecutive = 0
+                logger.debug(
+                    "Fire eval: conf=%s consecutive=%s threshold=%s",
+                    fire_conf,
+                    self._fire_consecutive,
+                    FIRE_CONSECUTIVE_FRAMES,
+                )
                 if fire_conf and self._fire_consecutive >= FIRE_CONSECUTIVE_FRAMES:
+                    logger.warning(
+                        "FIRE_ALERT_TRIGGERED cam=%s conf=%.2f consecutive=%d",
+                        self.camera_id,
+                        fire_conf,
+                        self._fire_consecutive,
+                    )
                     self._trigger_alert(frame, "Fire", fire_conf)
                     self._fire_consecutive = 0
                 if fire_conf:
@@ -1600,14 +1799,11 @@ class VideoProcessor:
             else:
                 self._fire_consecutive = 0
 
-            # Fall detection runs on its own cadence (FALL_INFER_EVERY_N inference frames)
-            # so the heavier dual-path detector doesn't block fire/PPE/crowd every frame.
-            fall_conf: Optional[float] = None
-            if self._fall_enabled:
-                fall_infer_counter += 1
-                if fall_infer_counter >= FALL_INFER_EVERY_N:
-                    fall_infer_counter = 0
-                    fall_conf = self._detect_fall(frame)
+            # Skip other detections on every Nth frame (to balance performance)
+            if frame_idx % INFER_EVERY_N_FRAMES != 0:
+                continue
+
+            fall_conf = self._detect_fall(frame) if self._fall_enabled else None
             if self._fall_enabled and fall_conf:
                 self._trigger_alert(frame, "Fall", fall_conf)
                 cv2.putText(
@@ -1672,8 +1868,7 @@ class VideoProcessor:
                 self._process_faces(frame, frame_idx)
 
             if not self._person_model or not self._needs_person_inference():
-                # Still stream raw frame to UI (fire/fall alerts used unannotated frame above)
-                self._publish_preview(frame)
+                # Person inference disabled; continue with next frame
                 continue
 
             boxes_px, points_norm, track_ids = self._person_boxes_and_points(frame)
@@ -1783,7 +1978,6 @@ class VideoProcessor:
                 self._process_crowd_analytics_tracked(tracked_points, stable_points)
             else:
                 self._process_crowd_analytics_points(stable_points)
-            self._publish_preview(frame)
 
     def _process_crowd_analytics_points(self, centroids: List[Tuple[float, float]]) -> None:
         if not self._person_model:
@@ -2484,38 +2678,111 @@ class VideoProcessor:
             "class_filter": filt,
         }
 
+    def get_fire_status(self) -> dict:
+        names = []
+        if self._fire_model is not None:
+            raw = getattr(self._fire_model, "names", None)
+            if isinstance(raw, dict):
+                names = [str(raw[k]) for k in sorted(raw.keys(), key=lambda x: int(x))]
+            elif isinstance(raw, list):
+                names = [str(n) for n in raw]
+        return {
+            "running": bool(self.is_running),
+            "fire_enabled": bool(self._fire_enabled),
+            "backend": self._fire_backend,
+            "model_loaded": bool(self._fire_model is not None),
+            "model_path": self._fire_model_resolved_path or YOLO_MODEL_PATH,
+            "confidence_threshold": float(self._fire_conf_threshold),
+            "consecutive_frames_required": int(FIRE_CONSECUTIVE_FRAMES),
+            "allowed_class_names": list(FIRE_ALLOWED_CLASS_NAMES),
+            "matched_class_ids": sorted(self._fire_class_ids) if self._fire_class_ids else [],
+            "model_classes": names,
+            "hsv_fallback": self._fire_model is None,
+            "yolo_predict_conf": float(min(self._fire_conf_threshold, FIRE_YOLO_PREDICT_CONF)),
+            "hsv_with_yolo": bool(FIRE_USE_HSV_WITH_YOLO),
+        }
+
+    def get_fall_status(self) -> dict:
+        pose_path = str(POSE_LANDMARKER_MODEL_PATH.resolve())
+        pose_file = POSE_LANDMARKER_MODEL_PATH.is_file()
+        yolo_pose_path = self._pose_yolo_resolved_path or POSE_YOLO_MODEL
+        return {
+            "running": bool(self.is_running),
+            "fall_enabled": bool(self._fall_enabled),
+            "pose_backend": self._pose_backend or "person_bbox_only",
+            "pose_loaded": bool(
+                self._pose is not None
+                or self._pose_legacy is not None
+                or self._pose_yolo is not None
+            ),
+            "pose_model_path": yolo_pose_path if self._pose_yolo else pose_path,
+            "pose_model_on_disk": bool(self._pose_yolo) or pose_file,
+            "yolo_pose_model": yolo_pose_path,
+            "person_model_loaded": bool(self._person_model is not None),
+            "person_model_path": PERSON_DETECT_MODEL,
+            "consecutive_frames_required": int(self._fall_consecutive_required),
+            "infer_every_n_frames": int(INFER_EVERY_N_FRAMES),
+            "mediapipe_available": bool(_MP_AVAILABLE),
+            "python_version": sys.version.split()[0],
+            "pose_backend_preference": POSE_BACKEND_PREF,
+        }
+
+    def _detect_fire_yolo(self, frame: np.ndarray) -> Optional[float]:
+        if not self._fire_model:
+            return None
+        predict_conf = min(self._fire_conf_threshold, FIRE_YOLO_PREDICT_CONF)
+        res = self._fire_model.predict(
+            frame,
+            conf=predict_conf,
+            verbose=False,
+            imgsz=FIRE_YOLO_IMGSZ,
+        )
+        if not res or not res[0].boxes or len(res[0].boxes) == 0:
+            return None
+        boxes = res[0].boxes
+        confs = boxes.conf.cpu().numpy() if getattr(boxes, "conf", None) is not None else None
+        cls = boxes.cls.cpu().numpy() if getattr(boxes, "cls", None) is not None else None
+        xy = boxes.xyxy.cpu().numpy() if getattr(boxes, "xyxy", None) is not None else None
+        h, w = frame.shape[:2]
+        best = 0.0
+        for i in range(len(boxes)):
+            if cls is not None and self._fire_class_ids:
+                try:
+                    c = int(cls[i])
+                except Exception:
+                    continue
+                if c not in self._fire_class_ids:
+                    continue
+            cconf = float(confs[i]) if confs is not None and i < len(confs) else 0.0
+            if xy is not None and i < len(xy):
+                x1, y1, x2, y2 = map(float, xy[i])
+                area_norm = max(0.0, (x2 - x1) * (y2 - y1)) / float(max(1.0, w * h))
+                if area_norm < FIRE_MIN_AREA_NORM:
+                    continue
+                self._fire_overlay_boxes.append(((int(x1), int(y1), int(x2), int(y2)), cconf))
+            if cconf > best:
+                best = cconf
+        if best >= self._fire_conf_threshold:
+            return best
+        return None
+
     def _detect_fire(self, frame):
         self._fire_overlay_boxes = []
-        if self._fire_model:
-            res = self._fire_model.predict(frame, conf=self._fire_conf_threshold, verbose=False, imgsz=320)
-            if not res or not res[0].boxes or len(res[0].boxes) == 0:
-                return None
-            boxes = res[0].boxes
-            confs = boxes.conf.cpu().numpy() if getattr(boxes, "conf", None) is not None else None
-            cls = boxes.cls.cpu().numpy() if getattr(boxes, "cls", None) is not None else None
-            xy = boxes.xyxy.cpu().numpy() if getattr(boxes, "xyxy", None) is not None else None
-            h, w = frame.shape[:2]
-            best = 0.0
-            for i in range(len(boxes)):
-                if cls is not None and self._fire_class_ids not in (None, set()):
-                    try:
-                        c = int(cls[i])
-                    except Exception:
-                        continue
-                    if c not in self._fire_class_ids:
-                        continue
-                if xy is not None and i < len(xy):
-                    x1, y1, x2, y2 = map(float, xy[i])
-                    area_norm = max(0.0, (x2 - x1) * (y2 - y1)) / float(max(1.0, w * h))
-                    if area_norm < FIRE_MIN_AREA_NORM:
-                        continue
-                    cconf = float(confs[i]) if confs is not None and i < len(confs) else 0.0
-                    self._fire_overlay_boxes.append(((int(x1), int(y1), int(x2), int(y2)), cconf))
-                cconf = float(confs[i]) if confs is not None and i < len(confs) else 0.0
-                if cconf > best:
-                    best = cconf
-            return best if best >= self._fire_conf_threshold else None
-        return self._detect_fire_hsv(frame)
+        yolo_conf = self._detect_fire_yolo(frame) if self._fire_model else None
+        if yolo_conf is not None:
+            return yolo_conf
+        if self._fire_model is not None and not FIRE_USE_HSV_WITH_YOLO:
+            return None
+        hsv_conf = self._detect_fire_hsv(frame)
+        if hsv_conf is not None and hsv_conf >= self._fire_conf_threshold:
+            logger.debug(
+                "Fire HSV-only: conf=%.3f threshold=%.3f overlays=%d",
+                hsv_conf,
+                self._fire_conf_threshold,
+                len(self._fire_overlay_boxes),
+            )
+            return hsv_conf
+        return None
 
     def _detect_fire_hsv(self, frame: np.ndarray) -> Optional[float]:
         """
@@ -2524,27 +2791,72 @@ class VideoProcessor:
         """
         try:
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            # Typical fire hues (red/orange/yellow) with high saturation + value.
-            lower1 = np.array([0, 120, 160], dtype=np.uint8)
-            upper1 = np.array([25, 255, 255], dtype=np.uint8)
-            lower2 = np.array([170, 120, 160], dtype=np.uint8)
+            # Fire is usually bright and saturated. Include yellow/orange flames as well as red tones.
+            # Orange/red flames (saturated fire)
+            lower1 = np.array([0, 100, 120], dtype=np.uint8)
+            upper1 = np.array([40, 255, 255], dtype=np.uint8)
+            lower2 = np.array([165, 100, 120], dtype=np.uint8)
             upper2 = np.array([180, 255, 255], dtype=np.uint8)
-            mask = cv2.inRange(hsv, lower1, upper1) | cv2.inRange(hsv, lower2, upper2)
+            mask_warm = cv2.inRange(hsv, lower1, upper1) | cv2.inRange(hsv, lower2, upper2)
+            warm_pixels = int(np.count_nonzero(mask_warm))
+            if warm_pixels < 80:
+                return None
+
+            # Broadcast / UI blues (e.g. station logos) — not fire.
+            blue_mask = cv2.inRange(hsv, np.array([90, 70, 50]), np.array([135, 255, 255]))
+            blue_frac = float(np.count_nonzero(blue_mask)) / float(mask_warm.size + 1e-9)
+            if blue_frac > FIRE_HSV_MAX_BLUE_FRAC:
+                return None
+
+            # Flame cores can be bright/low-S, but only count them when tied to warm regions.
+            lower_bright = np.array([5, 0, 210], dtype=np.uint8)
+            upper_bright = np.array([40, 85, 255], dtype=np.uint8)
+            mask_bright = cv2.inRange(hsv, lower_bright, upper_bright)
             kernel = np.ones((3, 3), np.uint8)
+            mask_warm_d = cv2.dilate(mask_warm, kernel, iterations=2)
+            mask_bright_near_warm = mask_bright & mask_warm_d
+            mask = mask_warm | mask_bright_near_warm
+
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
             mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel, iterations=1)
 
-            area_ratio = float(np.count_nonzero(mask)) / float(mask.size + 1e-9)
-            # Require at least a small contiguous region to avoid tiny highlights.
+            total_mask = int(np.count_nonzero(mask))
+            if total_mask < 80:
+                return None
+            warm_frac = warm_pixels / float(total_mask + 1e-9)
+            if warm_frac < FIRE_HSV_MIN_WARM_FRAC:
+                return None
+
+            area_ratio = float(total_mask) / float(mask.size + 1e-9)
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                return None
             max_area = max((cv2.contourArea(c) for c in contours), default=0.0)
             frame_area = float(frame.shape[0] * frame.shape[1] + 1e-9)
             max_blob_ratio = max_area / frame_area
-            if area_ratio < 0.008 or max_blob_ratio < 0.002:
+            if area_ratio < 0.004 or max_blob_ratio < 0.0012:
                 return None
-            conf = min(0.9, 0.45 + area_ratio * 3.5 + max_blob_ratio * 8.0)
-            return round(float(conf), 2)
-        except Exception:
+            values = hsv[:, :, 2][mask > 0]
+            if values.size == 0:
+                return None
+            average_value = float(np.mean(values))
+            if average_value < 155:
+                return None
+            raw_conf = 0.35 + max_blob_ratio * 10.0 + warm_frac * 0.25 + (average_value - 160) / 200.0
+            conf = round(float(min(FIRE_HSV_MAX_CONF, raw_conf)), 2)
+            largest = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(largest)
+            self._fire_overlay_boxes = [((x, y, x + w, y + h), conf)]
+            logger.debug(
+                "Fire HSV: conf=%s warm_frac=%.3f blue_frac=%.3f area_ratio=%.4f",
+                conf,
+                warm_frac,
+                blue_frac,
+                area_ratio,
+            )
+            return conf
+        except Exception as exc:
+            logger.debug("Fire HSV detection failed: %s", exc)
             return None
 
     def _draw_fall_pose_overlay(self, frame: np.ndarray) -> None:
@@ -2559,9 +2871,11 @@ class VideoProcessor:
         except TypeError:
             return
         h, w = frame.shape[:2]
+        j = self._pose_joints
 
-        def vis_pt(i: int):
-            if i >= n:
+        def vis_pt(key: str):
+            i = j.get(key, -1)
+            if i < 0 or i >= n:
                 return None
             p = lm[i]
             v = getattr(p, "visibility", 0.0)
@@ -2569,8 +2883,8 @@ class VideoProcessor:
                 return None
             return int(p.x * w), int(p.y * h)
 
-        l_sh, r_sh = vis_pt(11), vis_pt(12)
-        l_hp, r_hp = vis_pt(23), vis_pt(24)
+        l_sh, r_sh = vis_pt("l_sh"), vis_pt("r_sh")
+        l_hp, r_hp = vis_pt("l_hp"), vis_pt("r_hp")
         pts = [p for p in (l_sh, r_sh, l_hp, r_hp) if p is not None]
         if len(pts) < 2:
             return
@@ -2593,300 +2907,208 @@ class VideoProcessor:
             lineType=cv2.LINE_AA,
         )
 
-    # ------------------------------------------------------------------
-    # YOLO-based fall detector
-    # Works for overhead / bird's-eye cameras where MediaPipe pose cannot
-    # return landmarks (model was not trained on top-down views).
-    # Logic: a standing/walking person bbox is TALLER than wide.
-    #        A lying/fallen person bbox is WIDER than tall (aspect >= threshold).
-    # ------------------------------------------------------------------
-    def _detect_fall_yolo(self, frame: np.ndarray) -> Optional[float]:
-        """
-        Use the person-detection YOLO model to find horizontal bounding boxes.
-        Returns confidence if a fallen person is detected, else None.
-        """
-        if self._person_model is None:
-            return None
-
-        h, w = frame.shape[:2]
-        frame_area = h * w
-
+    def _update_pose_landmarks_yolo(self, frame: np.ndarray) -> None:
+        if self._pose_yolo is None:
+            return
         try:
-            results = self._person_model(
+            res = self._pose_yolo.predict(
                 frame,
-                conf=FALL_YOLO_PERSON_CONF,
-                classes=[0],          # COCO class 0 = person
+                conf=POSE_YOLO_CONF,
                 verbose=False,
-                imgsz=FALL_YOLO_IMGSZ,
+                imgsz=POSE_YOLO_IMGSZ,
             )
-        except Exception:
-            return None
-
-        boxes = []
-        for r in results:
-            for box in (r.boxes or []):
-                try:
-                    x1, y1, x2, y2 = box.xyxy[0].tolist()
-                    conf = float(box.conf[0])
-                except Exception:
-                    continue
-                bw = max(1, x2 - x1)
-                bh = max(1, y2 - y1)
-                area_norm = (bw * bh) / max(1, frame_area)
-                if area_norm < FALL_YOLO_MIN_AREA_NORM:
-                    continue
-                boxes.append((x1, y1, x2, y2, conf, bw, bh))
-
-        if not boxes:
-            # Decay all counters when no person detected
-            self._fall_yolo_consecutive = {
-                k: max(0, v - 1) for k, v in self._fall_yolo_consecutive.items()
-            }
-            return None
-
-        best_conf: Optional[float] = None
-
-        # Prune stale keys
-        current_keys = set()
-
-        for (x1, y1, x2, y2, det_conf, bw, bh) in boxes:
-            aspect = bw / bh          # wide > 1 → lying, tall < 1 → standing
-            # Grid-cell key so nearby boxes share a counter (handles small position jitter)
-            cell_x = int(x1 / w * 8)
-            cell_y = int(y1 / h * 8)
-            key = f"{cell_x}_{cell_y}"
-            current_keys.add(key)
-
-            if aspect >= FALL_YOLO_ASPECT_THRESHOLD:
-                self._fall_yolo_consecutive[key] = self._fall_yolo_consecutive.get(key, 0) + 1
-                if self._fall_yolo_consecutive[key] >= FALL_YOLO_CONSECUTIVE_FRAMES:
-                    # Compute confidence from aspect strength + detection confidence
-                    fall_conf = min(0.90, 0.50 + 0.08 * min(aspect, 3.0) + 0.05 * det_conf)
-                    if best_conf is None or fall_conf > best_conf:
-                        best_conf = round(fall_conf, 2)
-                    self._fall_yolo_consecutive[key] = 0   # reset after fire
-                    # Draw overlay box in orange
-                    if FALL_DRAW_POSE_OVERLAY:
-                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 140, 255), 2)
-                        cv2.putText(
-                            frame,
-                            f"FALL(YOLO) {fall_conf:.2f}",
-                            (int(x1), max(14, int(y1) - 6)),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.55,
-                            (0, 140, 255),
-                            2,
-                            lineType=cv2.LINE_AA,
-                        )
+            if not res or res[0].keypoints is None:
+                self._last_pose_landmarks = None
+                return
+            kobj = res[0].keypoints
+            if kobj.xy is None or len(kobj.xy) == 0:
+                self._last_pose_landmarks = None
+                return
+            h, w = frame.shape[:2]
+            xy = kobj.xy.cpu().numpy()
+            xyn = kobj.xyn.cpu().numpy() if getattr(kobj, "xyn", None) is not None else None
+            kconf = kobj.conf.cpu().numpy() if getattr(kobj, "conf", None) is not None else None
+            best_i = 0
+            best_score = -1.0
+            for i in range(len(xy)):
+                score = float(np.mean(kconf[i])) if kconf is not None and i < len(kconf) else 1.0
+                if score > best_score:
+                    best_score = score
+                    best_i = i
+            landmarks: List[_NormLandmark] = []
+            if xyn is not None and best_i < len(xyn):
+                for j in range(len(xyn[best_i])):
+                    x, y = float(xyn[best_i][j][0]), float(xyn[best_i][j][1])
+                    vis = float(kconf[best_i][j]) if kconf is not None else 1.0
+                    landmarks.append(_NormLandmark(x, y, vis))
             else:
-                # Person is standing/walking — decay counter
-                self._fall_yolo_consecutive[key] = max(
-                    0, self._fall_yolo_consecutive.get(key, 0) - 1
-                )
+                row = xy[best_i]
+                for j in range(len(row)):
+                    px, py = float(row[j][0]), float(row[j][1])
+                    landmarks.append(_NormLandmark(px / max(1.0, w), py / max(1.0, h), 1.0))
+            self._last_pose_landmarks = landmarks if landmarks else None
+        except Exception as exc:
+            logger.debug("YOLO pose update failed: %s", exc)
+            self._last_pose_landmarks = None
 
-        # Remove counters for positions no longer seen
-        self._fall_yolo_consecutive = {
-            k: v for k, v in self._fall_yolo_consecutive.items() if k in current_keys or v > 0
-        }
+    def _update_pose_landmarks(self, frame: np.ndarray) -> None:
+        """Run pose estimation and cache landmarks for overlay + fall logic."""
+        if self._pose_yolo is not None:
+            self._update_pose_landmarks_yolo(frame)
+            return
+        if self._pose is not None and _Image is not None and _ImageFormat is not None:
+            try:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                mp_image = _Image(_ImageFormat.SRGB, rgb)
+                self._pose_ts_ms += 33
+                res = self._pose.detect_for_video(mp_image, self._pose_ts_ms)
+                if res.pose_landmarks:
+                    self._last_pose_landmarks = res.pose_landmarks[0]
+                    return
+            except Exception as exc:
+                logger.debug("Pose tasks update failed: %s", exc)
+        if self._pose_legacy is not None:
+            try:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                res = self._pose_legacy.process(rgb)
+                if res.pose_landmarks:
+                    self._last_pose_landmarks = res.pose_landmarks.landmark
+                    return
+            except Exception as exc:
+                logger.debug("Pose legacy update failed: %s", exc)
+        self._last_pose_landmarks = None
 
-        return best_conf
+    def _detect_fall(self, frame):
+        if self._last_pose_landmarks is None:
+            self._update_pose_landmarks(frame)
+        lm = self._last_pose_landmarks
+        if lm is None:
+            return self._detect_fall_by_person_box(frame)
+        h, w = frame.shape[:2]
 
-    def _score_fall_pose(self, lm, h: int, w: int) -> Optional[float]:
-        """
-        Evaluate a single person's pose landmarks and return a fall confidence
-        score (0.0–0.92) if a fall is detected, else None.
-
-        Covers all fall directions:
-          • Side fall   – body horizontal, high x_span/y_span aspect
-          • Back fall   – spine/torso angled, head near ground level
-          • Front fall  – face-down, nose/shoulder y close to hip y
-          • Slope/ramp  – nearly flat body but hips not clearly below shoulders
-
-        Strategy: accumulate evidence from FOUR independent signals and fire
-        when at least TWO are positive, OR when any single signal is very strong.
-        This makes the detector robust to partial occlusion / low landmark
-        visibility on the ground.
-        """
         try:
             n = len(lm)
         except TypeError:
+            self._fall_consecutive = 0
             return None
 
-        # --- low-visibility threshold: 0.3 instead of 0.5 so lying-down
-        #     landmarks (often 0.3–0.45) are not discarded -----------------
-        VIS = 0.3
+        j = self._pose_joints
 
-        def get(i: int):
-            if i >= n:
+        def vis_lm(key: str):
+            i = j.get(key, -1)
+            if i < 0 or i >= n:
                 return None
             p = lm[i]
-            if getattr(p, "visibility", 0.0) < VIS:
+            if getattr(p, "visibility", 0.0) < 0.5:
                 return None
             return p
 
-        # Core landmarks
-        l_sh = get(11); r_sh = get(12)
-        l_hp = get(23); r_hp = get(24)
-        nose  = get(0)
-        l_kn  = get(25); r_kn  = get(26)
-        l_ank = get(27); r_ank = get(28)
-        l_wr  = get(15); r_wr  = get(16)
-
-        # Need at least shoulders OR hips to proceed
-        have_sh = l_sh is not None and r_sh is not None
-        have_hp = l_hp is not None and r_hp is not None
-        if not have_sh and not have_hp:
+        l_sh, r_sh = vis_lm("l_sh"), vis_lm("r_sh")
+        l_hp, r_hp = vis_lm("l_hp"), vis_lm("r_hp")
+        nose = vis_lm("nose")
+        if not (l_sh and r_sh and l_hp and r_hp):
+            self._fall_consecutive = 0
             return None
 
-        # ── Signal 1: torso verticality ─────────────────────────────────────
-        # A standing/seated person has vertical torso (|dy|/norm ≥ 0.55).
-        # A fallen person has a horizontal/diagonal torso.
-        torso_fallen = False
-        verticality = 1.0  # default: assume vertical if we can't compute
-        if have_sh and have_hp:
-            sx = (l_sh.x + r_sh.x) * 0.5
-            sy = (l_sh.y + r_sh.y) * 0.5
-            hx = (l_hp.x + r_hp.x) * 0.5
-            hy = (l_hp.y + r_hp.y) * 0.5
-            dy = hy - sy          # positive = hips below shoulders (upright)
-            dx = hx - sx
-            norm = math.sqrt(dx * dx + dy * dy) + 1e-9
-            verticality = abs(dy) / norm
+        sx = (l_sh.x + r_sh.x) * 0.5
+        sy = (l_sh.y + r_sh.y) * 0.5
+        hx = (l_hp.x + r_hp.x) * 0.5
+        hy = (l_hp.y + r_hp.y) * 0.5
+        dy = hy - sy
+        dx = hx - sx
+        norm = math.sqrt(dx * dx + dy * dy) + 1e-9
+        verticality = abs(dy) / norm
 
-            # Clearly upright: hips well below shoulders AND torso mostly vertical
-            if dy >= FALL_MIN_SHOULDER_HIP_DY_NORM and verticality >= FALL_MIN_UPRIGHT_VERTICALITY:
-                return None  # definite standing/seated → early exit
-
-            # Torso is non-vertical (angle < ~56° from horizontal)
-            if verticality < 0.55:
-                torso_fallen = True
-
-        # ── Signal 2: full-body bounding-box aspect ratio ───────────────────
-        # Collect ALL visible landmarks at reduced threshold
-        xs_n = [p.x for i in range(n) if (p := lm[i]) and getattr(p, "visibility", 0) >= VIS]
-        ys_n = [p.y for i in range(n) if (p := lm[i]) and getattr(p, "visibility", 0) >= VIS]
-        aspect_fallen = False
-        aspect = 0.0
-        if len(xs_n) >= 4:
-            y_span_n = max(ys_n) - min(ys_n) + 1e-9
-            x_span_n = max(xs_n) - min(xs_n)
-            aspect = x_span_n / y_span_n
-            # Side/back/front fall: body wider than tall
-            if aspect >= FALL_RATIO_THRESHOLD:
-                aspect_fallen = True
-
-        # ── Signal 3: extremity elevation ───────────────────────────────────
-        # When a person is lying down, ankles/knees are at roughly the same
-        # vertical level as the hips (or even above). In standing posture
-        # ankles are always well below hips.
-        extremity_fallen = False
-        if have_hp:
-            hip_y = ((l_hp.y if l_hp else 0) + (r_hp.y if r_hp else 0)) / max(
-                1, (1 if l_hp else 0) + (1 if r_hp else 0)
-            )
-            ankles = [a for a in (l_ank, r_ank) if a is not None]
-            knees  = [k for k in (l_kn,  r_kn)  if k is not None]
-            # In image coords y increases downward; ankles normally have LARGER y than hips.
-            # If an ankle is above or near the hip level → person is not standing.
-            if ankles and any(a.y < hip_y + 0.06 for a in ankles):
-                extremity_fallen = True
-            elif knees and any(k.y < hip_y + 0.04 for k in knees):
-                extremity_fallen = True
-
-        # ── Signal 4: head/nose close to ground ─────────────────────────────
-        # Nose y-coordinate is close to (or above) the hip y-coordinate.
-        head_low = False
-        if nose is not None and have_hp:
-            hip_y = ((l_hp.y if l_hp else 0) + (r_hp.y if r_hp else 0)) / max(
-                1, (1 if l_hp else 0) + (1 if r_hp else 0)
-            )
-            # In image y: nose is normally ABOVE hips (smaller y).
-            # If nose.y is within 10% of frame height of hip_y → head is near ground.
-            if abs(nose.y - hip_y) < 0.12:
-                head_low = True
-            # Front/back fall: nose is BELOW hips (person face-down or supine with legs raised)
-            if nose.y > hip_y + 0.0:
-                head_low = True
-
-        # ── Upright safety check using head ─────────────────────────────────
-        # If the nose is clearly above the hips AND torso looks ambiguous, treat as not fallen.
-        if not torso_fallen and not aspect_fallen and not extremity_fallen:
-            if nose is not None and have_hp:
-                hip_y = ((l_hp.y if l_hp else 0) + (r_hp.y if r_hp else 0)) / max(
-                    1, (1 if l_hp else 0) + (1 if r_hp else 0)
-                )
-                if nose.y < hip_y - FALL_AMBIGUOUS_DY_NORM:
-                    return None  # head clearly above hips, all other signals negative
-
-        # ── Decision: require ≥2 signals OR 1 very strong signal ────────────
-        signals = [torso_fallen, aspect_fallen, extremity_fallen, head_low]
-        n_positive = sum(signals)
-
-        # Very strong single signal: aspect ≥ 2× threshold (clearly horizontal body)
-        very_strong = aspect >= FALL_RATIO_THRESHOLD * 2.0
-
-        if n_positive < 2 and not very_strong:
+        # Clear upright / seated: hips below shoulders with a vertical torso in image space.
+        if dy >= FALL_MIN_SHOULDER_HIP_DY_NORM and verticality >= FALL_MIN_UPRIGHT_VERTICALITY:
+            self._fall_consecutive = 0
             return None
 
-        # Confidence: weighted by how many signals fired + aspect strength
-        base = 0.50 + 0.08 * n_positive
-        aspect_bonus = 0.06 * min(aspect, 3.0) if aspect > 0 else 0.0
-        conf = min(0.92, base + aspect_bonus)
+        # Overhead / shallow angle: torso is short in y — if head is still above hips, treat as not fallen.
+        if abs(dy) < FALL_AMBIGUOUS_DY_NORM and nose is not None and nose.y < hy - 0.015:
+            self._fall_consecutive = 0
+            return None
+
+        xs = [l.x * w for l in lm if getattr(l, "visibility", 0) > 0.5]
+        ys = [l.y * h for l in lm if getattr(l, "visibility", 0) > 0.5]
+        if len(xs) < 5:
+            self._fall_consecutive = 0
+            return None
+        y_span = max(ys) - min(ys)
+        x_span = max(xs) - min(xs)
+        if y_span <= 1e-6:
+            self._fall_consecutive = 0
+            return None
+        aspect = x_span / y_span
+
+        # Width-heavy bbox alone matched seated workers; require a non-upright torso and high aspect.
+        if aspect <= FALL_RATIO_THRESHOLD or verticality >= (FALL_MIN_UPRIGHT_VERTICALITY + 0.12):
+            self._fall_consecutive = 0
+            return None
+
+        self._fall_consecutive += 1
+        if self._fall_consecutive < self._fall_consecutive_required:
+            return None
+
+        self._fall_consecutive = 0
+        conf = min(0.92, 0.52 + 0.12 * min(aspect, 3.0))
         return round(conf, 2)
 
-    def _detect_fall(self, frame):
-        """
-        Dual-path fall detector:
-          1. MediaPipe pose  – best for close-up, front/side/back views
-          2. YOLO bbox shape – best for overhead/bird's-eye views where
-             MediaPipe cannot detect landmarks at all
-
-        Returns the highest-confidence fall score from either path, or None.
-        """
-        # ── Path 1: YOLO bbox aspect (always runs if person model available) ──
-        yolo_conf = self._detect_fall_yolo(frame)
-
-        # ── Path 2: MediaPipe pose ────────────────────────────────────────────
-        pose_conf: Optional[float] = None
-        if self._pose:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = _Image(_ImageFormat.SRGB, rgb)
-            self._pose_ts_ms += 33
-            res = self._pose.detect_for_video(mp_image, self._pose_ts_ms)
-
-            if not res.pose_landmarks:
-                self._last_pose_landmarks = None
-                self._fall_consecutive = max(0, self._fall_consecutive - 1)
-            else:
-                h, w = frame.shape[:2]
-                best_conf: Optional[float] = None
-                best_lm = None
-                for person_lm in res.pose_landmarks:
-                    score = self._score_fall_pose(person_lm, h, w)
-                    if score is not None:
-                        if best_conf is None or score > best_conf:
-                            best_conf = score
-                            best_lm = person_lm
-
-                self._last_pose_landmarks = (
-                    best_lm if best_lm is not None else res.pose_landmarks[0]
-                )
-
-                if best_conf is None:
-                    self._fall_consecutive = max(0, self._fall_consecutive - 1)
-                else:
-                    self._fall_consecutive += 1
-                    if self._fall_consecutive >= self._fall_consecutive_required:
-                        self._fall_consecutive = 0
-                        pose_conf = best_conf
-        else:
-            self._last_pose_landmarks = None
+    def _detect_fall_by_person_box(self, frame):
+        if self._person_model is None or self._person_class_id is None:
             self._fall_consecutive = 0
-
-        # ── Combine: return best result from either path ──────────────────────
-        if yolo_conf is not None and pose_conf is not None:
-            return max(yolo_conf, pose_conf)
-        return yolo_conf if yolo_conf is not None else pose_conf
+            return None
+        try:
+            res = self._person_model.predict(
+                frame,
+                conf=PERSON_COUNT_CONF_MIN,
+                verbose=False,
+                imgsz=FOOTFALL_INFER_IMGSZ,
+            )
+            if not res or not res[0].boxes or len(res[0].boxes) == 0:
+                self._fall_consecutive = 0
+                return None
+            boxes = res[0].boxes
+            cls = boxes.cls.cpu().numpy() if getattr(boxes, "cls", None) is not None else None
+            xy = boxes.xyxy.cpu().numpy() if getattr(boxes, "xyxy", None) is not None else None
+            h, w = frame.shape[:2]
+            best_ratio = 0.0
+            best_area = 0.0
+            for i in range(len(boxes)):
+                if cls is not None:
+                    try:
+                        c = int(cls[i])
+                    except Exception:
+                        continue
+                    if c != self._person_class_id:
+                        continue
+                if xy is None or i >= len(xy):
+                    continue
+                x1, y1, x2, y2 = map(float, xy[i])
+                width = x2 - x1
+                height = y2 - y1
+                if height <= 0 or width <= 0:
+                    continue
+                area_norm = (width * height) / float(max(1.0, w * h))
+                if area_norm < 0.012:
+                    continue
+                ratio = width / height
+                if ratio > best_ratio:
+                    best_ratio = ratio
+                    best_area = area_norm
+            if best_ratio <= FALL_RATIO_THRESHOLD:
+                self._fall_consecutive = 0
+                return None
+            self._fall_consecutive += 1
+            if self._fall_consecutive < self._fall_consecutive_required:
+                return None
+            self._fall_consecutive = 0
+            conf = min(0.85, 0.45 + 0.10 * min(best_ratio, 4.0))
+            return round(conf, 2)
+        except Exception as exc:
+            logger.debug("Person-box fall fallback failed: %s", exc)
+            self._fall_consecutive = 0
+            return None
 
     def _maybe_record_person_reid_samples(
         self,
@@ -3003,12 +3225,19 @@ class VideoProcessor:
         if key == "fire":
             cooldown = FIRE_ALERT_MIN_INTERVAL_SECONDS
             if self._recent_fire_alert_in_db():
+                logger.debug("Fire alert suppressed: duplicate detected within %s seconds", cooldown)
                 return
         if key == "weapon":
             cooldown = WEAPON_ALERT_MIN_INTERVAL_SECONDS
             if self._recent_weapon_alert_in_db():
+                logger.debug("Weapon alert suppressed: duplicate detected within %s seconds", cooldown)
                 return
         if now - self._last_alert.get(key, 0) < cooldown:
+            logger.debug(
+                "Alert %s suppressed by cooldown: %s remaining",
+                key,
+                cooldown - (now - self._last_alert.get(key, 0)),
+            )
             return
         self._last_alert[key] = now
         path = self._save_snapshot(frame, alert_type)
@@ -3170,6 +3399,20 @@ class ProcessorRegistry:
         if not proc:
             return None
         return proc.get_weapon_status()
+
+    def get_fire_status(self, camera_id: int) -> Optional[dict]:
+        with self._lock:
+            proc = self._processors.get(camera_id)
+        if not proc:
+            return None
+        return proc.get_fire_status()
+
+    def get_fall_status(self, camera_id: int) -> Optional[dict]:
+        with self._lock:
+            proc = self._processors.get(camera_id)
+        if not proc:
+            return None
+        return proc.get_fall_status()
 
     def refresh_settings(self, camera_id: int) -> bool:
         with self._lock:

@@ -31,20 +31,20 @@ export const useAuth = create<AuthState>((set) => ({
   isAdmin: false,
 
   setAuth(token, user) {
-    Cookies.set("aegis_token", token, { expires: 1, sameSite: "strict" });
-    Cookies.set("aegis_user",  JSON.stringify(user), { expires: 1, sameSite: "strict" });
+    Cookies.set("lumicams_token", token, { expires: 1, sameSite: "strict" });
+    Cookies.set("lumicams_user",  JSON.stringify(user), { expires: 1, sameSite: "strict" });
     set({ token, user, isAdmin: computeIsAdmin(user) });
   },
 
   clearAuth() {
-    Cookies.remove("aegis_token");
-    Cookies.remove("aegis_user");
+    Cookies.remove("lumicams_token");
+    Cookies.remove("lumicams_user");
     set({ token: null, user: null, isAdmin: false });
   },
 
   hydrate() {
-    const token = Cookies.get("aegis_token");
-    const raw   = Cookies.get("aegis_user");
+    const token = Cookies.get("lumicams_token");
+    const raw   = Cookies.get("lumicams_user");
     if (token && raw) {
       try {
         const user: User = JSON.parse(raw);

@@ -12,7 +12,7 @@ import Cookies from "js-cookie";
  */
 
 export function getWebSocketAlertsUrl(): string {
-  const token = typeof window !== "undefined" ? Cookies.get("aegis_token") : undefined;
+  const token = typeof window !== "undefined" ? Cookies.get("lumicams_token") : undefined;
   const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
 
   if (typeof window === "undefined") {

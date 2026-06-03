@@ -72,7 +72,7 @@ export default function WeaponPage() {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1
-            className="text-xl font-bold tracking-widest"
+            className="text-md font-bold tracking-widest"
             style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}
           >
             WEAPON DETECTION
@@ -95,23 +95,23 @@ export default function WeaponPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="aegis-card p-4">
+        <div className="lumicams-card p-4">
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>
             CAMERAS WITH WEAPON ON
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#f87171" }}>
+          <p className="text-xl font-bold mt-1" style={{ color: "#f87171" }}>
             {activeCount}
           </p>
         </div>
-        <div className="aegis-card p-4">
+        <div className="lumicams-card p-4">
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>
             WEAPON ALERTS (RECENT)
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#ef4444" }}>
+          <p className="text-xl font-bold mt-1" style={{ color: "#ef4444" }}>
             {alerts.length}
           </p>
         </div>
-        <div className="aegis-card p-4 flex items-center gap-3">
+        <div className="lumicams-card p-4 flex items-center gap-3">
           <Shield className="w-6 h-6" style={{ color: "#f87171" }} />
           <p className="text-xs" style={{ color: "var(--dash-body-text)" }}>
             Place <code className="text-[10px]">YOLO_WEAPON_MODEL</code> on the server and restart inference.
@@ -120,7 +120,7 @@ export default function WeaponPage() {
       </div>
 
       {weaponStatus && (
-        <div className={`aegis-banner ${weaponStatus.model_loaded ? "aegis-banner--success" : "aegis-banner--warn"}`}>
+        <div className={`lumicams-banner ${weaponStatus.model_loaded ? "lumicams-banner--success" : "lumicams-banner--warn"}`}>
           {weaponStatus.model_loaded ? (
             <span>
               Weapon model is loaded from <code>{weaponStatus.model_path}</code>
@@ -140,7 +140,7 @@ export default function WeaponPage() {
         </div>
       )}
 
-      <div className="aegis-card p-5 space-y-4">
+      <div className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest"
           style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -154,10 +154,10 @@ export default function WeaponPage() {
         ) : (
           <div className="space-y-3">
             {cameras.map((cam) => (
-              <div key={cam.id} className="aegis-subcard p-3 space-y-3">
+              <div key={cam.id} className="lumicams-subcard p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold aegis-text-title">{cam.name}</p>
+                    <p className="text-sm font-semibold lumicams-text-title">{cam.name}</p>
                     <p className="text-[10px]" style={{ color: "var(--dash-subtle)" }}>
                       Detections above min confidence create alerts; VLM reduces false positives.
                     </p>
@@ -199,10 +199,10 @@ export default function WeaponPage() {
                           )
                         )
                       }
-                      className="aegis-field w-32"
+                      className="lumicams-field w-32"
                     />
                   </label>
-                  <button type="button" onClick={() => saveCamera(cam)} className="btn-aegis text-xs px-3 py-2">
+                  <button type="button" onClick={() => saveCamera(cam)} className="btn-lumicams text-xs px-3 py-2">
                     <Save className="w-3.5 h-3.5" />
                     {savingId === cam.id ? "Saving..." : "Save"}
                   </button>
@@ -213,7 +213,7 @@ export default function WeaponPage() {
         )}
       </div>
 
-      <div className="aegis-card p-5">
+      <div className="lumicams-card p-5">
         <h2
           className="text-xs font-bold tracking-widest mb-3"
           style={{ color: "var(--dash-body-text)", fontFamily: "var(--font-orbitron)" }}
@@ -228,7 +228,7 @@ export default function WeaponPage() {
         ) : (
           <div className="space-y-2">
             {alerts.slice(0, 20).map((a) => (
-              <div key={a.id} className="aegis-subcard p-3 text-xs">
+              <div key={a.id} className="lumicams-subcard p-3 text-xs">
                 <div className="flex items-center justify-between">
                   <p className="inline-flex items-center gap-1.5" style={{ color: "#ef4444" }}>
                     <CheckCircle2 className="w-3.5 h-3.5" />

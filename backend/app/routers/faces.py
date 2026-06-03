@@ -73,7 +73,7 @@ def face_module_status(
     _user: User = Depends(get_current_user),
 ):
     app = get_shared_face_app()
-    engine = getattr(app, "_aegis_engine", None) if app is not None else "none"
+    engine = getattr(app, "_lumicams_engine", None) if app is not None else "none"
     pipeline = os.getenv("FACE_RECOGNITION_ENABLED", "false").strip().lower() in (
         "1",
         "true",
@@ -103,8 +103,6 @@ def face_module_status(
 
 def _face_org_id_for_write(admin: User, payload_org: Optional[int]) -> Optional[int]:
     if is_super_admin(admin):
-        if payload_org is None:
-            raise HTTPException(status_code=422, detail="organization_id is required.")
         return payload_org
     if admin.organization_id is None:
         raise HTTPException(status_code=400, detail="Not assigned to an organization.")
@@ -182,8 +180,8 @@ async def enroll_identity_image(
     name: str = Form(...),
     category: FaceCategoryEnum = Form(FaceCategoryEnum.neutral),
     employee_code: Optional[str] = Form(None),
-    image: UploadFile = File(...),
     organization_id: Optional[int] = Form(None),
+    image: UploadFile = File(...),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
@@ -213,19 +211,7 @@ async def enroll_identity_image(
     if app is not None:
         embeddings = _extract_embeddings_from_frame(frame, app)
 
-    oid = organization_id
-    if is_super_admin(_admin) and oid is None:
-        from app.models import Organization
-        first_org = db.query(Organization).first()
-        if first_org:
-            oid = first_org.id
-        else:
-            raise HTTPException(
-                status_code=422,
-                detail="Platform admin: organization_id is required but no organizations exist in database.",
-            )
-
-    oid = _face_org_id_for_write(_admin, oid)
+    oid = _face_org_id_for_write(_admin, organization_id)
     obj = FaceIdentity(
         organization_id=oid,
         name=name.strip(),

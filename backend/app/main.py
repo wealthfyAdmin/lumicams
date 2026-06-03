@@ -1,7 +1,7 @@
 """
 main.py
 -------
-Aegis-Eye FastAPI application entry-point.
+Lumicams FastAPI application entry-point.
 
 Startup sequence:
   1. Load .env configuration.
@@ -53,7 +53,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s – %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("aegis-eye")
+logger = logging.getLogger("lumicams")
 
 # ---------------------------------------------------------------------------
 # Startup / Shutdown
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
     FastAPI lifespan context manager.
     Code before `yield` runs at startup; code after runs at shutdown.
     """
-    logger.info("=== Aegis-Eye API starting up ===")
+    logger.info("=== Lumicams API starting up ===")
 
     # 1. Create DB tables + idempotent column patches (PostgreSQL)
     create_tables()
@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down – stopping all processors …")
     registry.stop_all()
-    logger.info("=== Aegis-Eye API shut down ===")
+    logger.info("=== Lumicams API shut down ===")
 
 
 def _seed_admin() -> None:
@@ -147,7 +147,7 @@ def _reset_camera_states() -> None:
 # ---------------------------------------------------------------------------
 
 def _is_production_env() -> bool:
-    e = os.getenv("ENVIRONMENT", os.getenv("AEGIS_ENV", "development")).lower().strip()
+    e = os.getenv("ENVIRONMENT", os.getenv("Lumicams_ENV", "development")).lower().strip()
     return e in ("production", "prod", "staging")
 
 
@@ -184,7 +184,7 @@ def _database_ok() -> bool:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Lumicams / Aegis-Eye API",
+    title="Lumicams / Lumicams API",
     description=(
         "AI-powered surveillance: RTSP ingestion, YOLO detection, crowd analytics, "
         "face pipeline, WebSocket alerts, multi-tenant RBAC."
@@ -318,9 +318,9 @@ def health_check():
     db_ok = _database_ok()
     payload = {
         "status": "ok" if db_ok else "unhealthy",
-        "service": "Lumicams / Aegis-Eye API",
+        "service": "Lumicams / Lumicams API",
         "version": APP_VERSION,
-        "environment": os.getenv("ENVIRONMENT", os.getenv("AEGIS_ENV", "development")),
+        "environment": os.getenv("ENVIRONMENT", os.getenv("Lumicams_ENV", "development")),
         "database": "ok" if db_ok else "error",
         "processors_running": len(registry.running_ids()),
         "ws_connections": ws_manager.connection_count,

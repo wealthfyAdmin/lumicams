@@ -44,7 +44,7 @@ export default function CamerasPage() {
             Manage RTSP streams and AI processor control
           </p>
         </div>
-        <button onClick={refresh} className="btn-aegis text-xs">
+        <button onClick={refresh} className="btn-lumicams text-xs">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           REFRESH
         </button>
@@ -79,7 +79,7 @@ export default function CamerasPage() {
           LIVE FEEDS
         </h2>
         {loading ? (
-          <div className="aegis-card flex items-center justify-center py-16">
+          <div className="lumicams-card flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin"
                  style={{ color: "#00d4ff" }} />
           </div>

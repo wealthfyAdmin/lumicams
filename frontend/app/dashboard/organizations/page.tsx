@@ -105,7 +105,7 @@ export default function OrganizationsPage() {
 
   if (!isPlatform) {
     return (
-      <div className="aegis-card p-8 text-center fade-in" style={{ color: "var(--dash-subtle)" }}>
+      <div className="lumicams-card p-8 text-center fade-in" style={{ color: "var(--dash-subtle)" }}>
         <Building2 className="w-10 h-10 mx-auto mb-3 opacity-40" />
         <p className="text-sm font-semibold tracking-widest">PLATFORM ADMIN ONLY</p>
         <p className="text-xs mt-2 max-w-md mx-auto">
@@ -127,14 +127,14 @@ export default function OrganizationsPage() {
             Tenants — assign cameras and org users to each organization
           </p>
         </div>
-        <button type="button" onClick={() => setShowCreate(true)} className="btn-aegis text-xs">
+        <button type="button" onClick={() => setShowCreate(true)} className="btn-lumicams text-xs">
           <Plus className="w-3.5 h-3.5" /> NEW ORGANIZATION
         </button>
       </div>
 
-      <div className="aegis-card overflow-hidden">
+      <div className="lumicams-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full aegis-table">
+          <table className="w-full lumicams-table">
             <thead>
               <tr>
                 <th className="text-left">ID</th>
@@ -207,7 +207,7 @@ export default function OrganizationsPage() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
-          <div className="relative w-full max-w-md mx-4 aegis-card p-6 z-10 fade-in">
+          <div className="relative w-full max-w-md mx-4 lumicams-card p-6 z-10 fade-in">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold tracking-widest" style={{ fontFamily: "var(--font-orbitron)" }}>
                 NEW ORGANIZATION
@@ -276,7 +276,7 @@ export default function OrganizationsPage() {
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditing(null)} />
-          <div className="relative w-full max-w-md mx-4 aegis-card p-6 z-10 fade-in">
+          <div className="relative w-full max-w-md mx-4 lumicams-card p-6 z-10 fade-in">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold tracking-widest" style={{ fontFamily: "var(--font-orbitron)" }}>
                 EDIT ORGANIZATION

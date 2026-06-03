@@ -71,42 +71,6 @@ def _paused_placeholder_jpeg() -> bytes:
     return _FALLBACK_JPEG
 
 
-def _loading_placeholder_jpeg() -> bytes:
-    """Single JPEG frame shown while the processor is starting up / loading models."""
-    try:
-        import cv2
-        import numpy as np
-
-        h, w = 360, 640
-        img = np.full((h, w, 3), (18, 22, 36), dtype=np.uint8)
-        cv2.putText(
-            img,
-            "Loading...",
-            (230, h // 2 - 16),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.80,
-            (80, 220, 160),
-            2,
-            cv2.LINE_AA,
-        )
-        cv2.putText(
-            img,
-            "AI models initialising, please wait",
-            (88, h // 2 + 24),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.52,
-            (120, 150, 180),
-            1,
-            cv2.LINE_AA,
-        )
-        ok, buf = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
-        if ok:
-            return buf.tobytes()
-    except Exception:
-        pass
-    return _FALLBACK_JPEG
-
-
 def _get_camera_or_404(camera_id: int, db: Session, user: User) -> Camera:
     cam = db.query(Camera).filter(Camera.id == camera_id).first()
     if not cam or not camera_accessible(user, cam):
@@ -190,44 +154,19 @@ def get_camera(
     return _get_camera_or_404(camera_id, db, current_user)
 
 @router.patch("/{camera_id}", response_model=CameraOut)
-async def update_camera(
+def update_camera(
     camera_id: int,
     payload: CameraUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     cam = _get_camera_or_404(camera_id, db, admin)
-    old_rtsp = cam.rtsp_url
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(cam, field, value)
     db.commit()
     db.refresh(cam)
-
-    was_running = registry.is_running(camera_id)
-
-    if was_running:
-        # Always restart so the processor picks up every changed field immediately.
-        registry.stop(camera_id)
-        # Brief pause to let the thread fully stop before spawning a new one.
-        import asyncio as _asyncio
-        await _asyncio.sleep(0.3)
-        try:
-            loop = _asyncio.get_running_loop()
-        except RuntimeError:
-            loop = _asyncio.get_event_loop()
-        registry.start(
-            camera_id=cam.id,
-            rtsp_url=cam.rtsp_url,
-            camera_name=cam.name,
-            db_factory=SessionLocal,
-            ws_manager=ws_manager,
-            loop=loop,
-        )
-        logger.info("Camera %s updated and processor restarted.", camera_id)
-    else:
-        # Not running — just flush settings in case it starts later.
-        registry.refresh_settings(camera_id)
-
+    # Apply settings immediately if processor is live (no wait for periodic refresh).
+    registry.refresh_settings(camera_id)
     return cam
 
 @router.delete("/{camera_id}", status_code=204)
@@ -372,6 +311,53 @@ def weapon_status(
     return proc_status
 
 
+@router.get("/{camera_id}/fire-status")
+def fire_status(
+    camera_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cam = _get_camera_or_404(camera_id, db, current_user)
+    proc_status = registry.get_fire_status(camera_id)
+    if proc_status is None:
+        return {
+            "running": False,
+            "fire_enabled": bool(getattr(cam, "fire_enabled", True)),
+            "backend": "hsv",
+            "model_loaded": False,
+            "model_path": os.getenv("YOLO_FIRE_MODEL", "models/fire.pt"),
+            "confidence_threshold": float(
+                getattr(cam, "fire_min_confidence", None)
+                if getattr(cam, "fire_min_confidence", None) is not None
+                else float(os.getenv("FIRE_CONF_THRESHOLD", "0.45"))
+            ),
+            "hsv_fallback": True,
+            "model_classes": [],
+            "message": "Processor is not running for this camera.",
+        }
+    return proc_status
+
+
+@router.get("/{camera_id}/fall-status")
+def fall_status(
+    camera_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cam = _get_camera_or_404(camera_id, db, current_user)
+    proc_status = registry.get_fall_status(camera_id)
+    if proc_status is None:
+        return {
+            "running": False,
+            "fall_enabled": bool(getattr(cam, "fall_enabled", True)),
+            "pose_backend": "unknown",
+            "pose_loaded": False,
+            "person_model_loaded": False,
+            "message": "Processor is not running for this camera.",
+        }
+    return proc_status
+
+
 # ---------------------------------------------------------------------------
 # Live Preview Feed (MJPEG)
 # ---------------------------------------------------------------------------
@@ -389,13 +375,10 @@ def video_feed(
     """
     _get_camera_or_404(camera_id, db, current_user)
     paused_jpeg = _paused_placeholder_jpeg()
-    loading_jpeg = _loading_placeholder_jpeg()
 
     def generate():
-        _loading_sent = False
         while True:
             if not registry.is_running(camera_id):
-                _loading_sent = False
                 yield (
                     b"--frame\r\n"
                     b"Content-Type: image/jpeg\r\n\r\n" + paused_jpeg + b"\r\n"
@@ -404,22 +387,13 @@ def video_feed(
                 continue
             jpeg = registry.get_preview_jpeg(camera_id)
             if jpeg:
-                _loading_sent = False
                 yield (
                     b"--frame\r\n"
                     b"Content-Type: image/jpeg\r\n\r\n" + jpeg + b"\r\n"
                 )
-                time.sleep(1.0 / 25.0)
+                time.sleep(1.0 / 20.0)
             else:
-                # Processor is running but hasn't produced a frame yet (loading / warming up).
-                # Send the loading placeholder so the browser shows something instead of black.
-                if not _loading_sent:
-                    yield (
-                        b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n\r\n" + loading_jpeg + b"\r\n"
-                    )
-                    _loading_sent = True
-                time.sleep(0.05)
+                time.sleep(0.04)
 
     return StreamingResponse(
         generate(),

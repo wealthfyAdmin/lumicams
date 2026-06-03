@@ -122,7 +122,7 @@ export default function CrowdAnalyticsPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1
-            className="text-xl font-bold tracking-widest flex items-center gap-2"
+            className="text-md font-bold tracking-widest flex items-center gap-2"
             style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}
           >
             <Footprints className="w-6 h-6" />
@@ -180,14 +180,14 @@ export default function CrowdAnalyticsPage() {
               </option>
             ))}
           </select>
-          <button onClick={refresh} className="btn-aegis text-xs">
+          <button onClick={refresh} className="btn-lumicams text-xs">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             REFRESH
           </button>
         </div>
       </div>
 
-      <section className="aegis-card p-4">
+      <section className="lumicams-card p-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Metric
             label="TOTAL PEOPLE NOW"
@@ -211,7 +211,7 @@ export default function CrowdAnalyticsPage() {
       </section>
 
       {/* Footfall */}
-      <section className="aegis-card p-5 space-y-4">
+      <section className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest flex items-center gap-2"
           style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}
@@ -367,7 +367,7 @@ export default function CrowdAnalyticsPage() {
       </section>
 
       {/* Live crowd metrics */}
-      <section className="aegis-card p-5 space-y-4">
+      <section className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest flex items-center gap-2"
           style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}
@@ -457,7 +457,7 @@ export default function CrowdAnalyticsPage() {
       </section>
 
       {/* Zone + frame (replaces abstract grid heatmap) */}
-      <section className="aegis-card p-5 space-y-4">
+      <section className="lumicams-card p-5 space-y-4">
         <h2
           className="text-xs font-bold tracking-widest flex items-center gap-2"
           style={{ fontFamily: "var(--font-orbitron)", color: "#94a3b8" }}
@@ -506,7 +506,7 @@ function Metric({
       <p className="text-[10px] tracking-widest" style={{ color: "#475569" }}>
         {label}
       </p>
-      <p className="text-2xl font-bold mt-1" style={{ color, fontFamily: "var(--font-orbitron)" }}>
+      <p className="text-xl font-bold mt-1" style={{ color, fontFamily: "var(--font-orbitron)" }}>
         {value}
       </p>
       {sub && (
@@ -535,7 +535,7 @@ function MetricSmall({
       <p className="text-[9px] tracking-wider" style={{ color: "#475569" }}>
         {label}
       </p>
-      <p className="text-xl font-bold tabular-nums mt-0.5" style={{ color: value == null ? "#475569" : color, fontFamily: "var(--font-orbitron)" }}>
+      <p className="text-md font-bold tabular-nums mt-0.5" style={{ color: value == null ? "#475569" : color, fontFamily: "var(--font-orbitron)" }}>
         {value == null ? "—" : value}
       </p>
     </div>

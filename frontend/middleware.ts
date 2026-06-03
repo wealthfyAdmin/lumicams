@@ -3,7 +3,7 @@
  * -------------
  * Next.js Edge Middleware – protects all /dashboard routes.
  *
- * - Unauthenticated users (no `aegis_token` cookie) are redirected to /login.
+ * - Unauthenticated users (no `lumicams_token` cookie) are redirected to /login.
  * - Authenticated users hitting /login are redirected to /dashboard.
  */
 
@@ -14,7 +14,7 @@ const AUTH_ONLY = ["/login"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = req.cookies.get("aegis_token")?.value;
+  const token = req.cookies.get("lumicams_token")?.value;
 
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   const isAuthPage  = AUTH_ONLY.some((p) => pathname.startsWith(p));
