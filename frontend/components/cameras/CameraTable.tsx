@@ -18,12 +18,23 @@ import {
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { formatTs } from "@/lib/utils";
+import CrowdLiveCountPanel from "@/components/cameras/CrowdLiveCountPanel";
+import { useRealtimeStore } from "@/stores/realtimeStore";
 
 // ── Add / Edit Modal ──────────────────────────────────────────
 interface ModalProps {
   initial?: Camera | null;
   onClose: () => void;
   onSave:  () => void;
+}
+
+function isCrowdModuleEnabled(cam: Camera): boolean {
+  return (
+    (cam.person_detection_enabled ?? true) ||
+    Boolean(cam.crowd_roi_enabled) ||
+    (cam.footfall_enabled ?? true) ||
+    (cam.heatmap_enabled ?? true)
+  );
 }
 
 function initRoiSliders(c?: Camera | null) {
@@ -458,6 +469,18 @@ function CameraModal({ initial, onClose, onSave }: ModalProps) {
               </label>
             </div>
 
+            {crowdModuleEnabled && (
+              <CrowdLiveCountPanel
+                cameraId={initial?.id}
+                processorActive={initial?.status === "active"}
+                personDetectionEnabled={personDet}
+                crowdRoiEnabled={crowdRoi}
+                lastCrowdRoiCount={initial?.last_crowd_roi_count}
+                crowdLimitEnabled={crowdLimitEnabled}
+                crowdMaxPeople={crowdMaxPeople}
+              />
+            )}
+
             {(fireEnabled || fallEnabled || faceEnabled || ppeEnabled || weaponEnabled) && (
               <div className="aegis-subcard rounded-md p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end text-[10px] pt-1">
                 {fireEnabled && (
@@ -743,6 +766,13 @@ interface CameraTableProps {
 
 export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
   const isAdmin = useAuth((s) => s.isAdmin);
+  const crowdMetrics = useRealtimeStore((s) => s.latestCrowdMetrics);
+  const metricByCam = useMemo(() => {
+    const m = new Map<number, (typeof crowdMetrics)[0]>();
+    for (const row of crowdMetrics) m.set(row.camera_id, row);
+    return m;
+  }, [crowdMetrics]);
+  const showPeopleCol = cameras.some(isCrowdModuleEnabled);
   const [modal,    setModal]    = useState<"add" | Camera | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [toggling, setToggling] = useState<number | null>(null);
@@ -819,6 +849,9 @@ export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
                 <th className="text-left">STREAM URL</th>
                 <th className="text-left">LOCATION</th>
                 <th className="text-left">STATUS</th>
+                {showPeopleCol && (
+                  <th className="text-left">PEOPLE</th>
+                )}
                 <th className="text-left">ADDED</th>
                 {isAdmin && <th className="text-right">ACTIONS</th>}
               </tr>
@@ -826,7 +859,11 @@ export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
             <tbody>
               {cameras.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="text-center py-10" style={{ color: "#2a3a5c" }}>
+                  <td
+                    colSpan={(isAdmin ? 7 : 6) + (showPeopleCol ? 1 : 0)}
+                    className="text-center py-10"
+                    style={{ color: "#2a3a5c" }}
+                  >
                     No cameras found. Add one to get started.
                   </td>
                 </tr>
@@ -848,6 +885,44 @@ export default function CameraTable({ cameras, onRefresh }: CameraTableProps) {
                         {cam.status.toUpperCase()}
                       </span>
                     </td>
+                    {showPeopleCol && (
+                      <td style={{ fontSize: "0.75rem" }}>
+                        {!isCrowdModuleEnabled(cam) ? (
+                          <span style={{ color: "#475569" }}>—</span>
+                        ) : cam.status !== "active" ? (
+                          <span style={{ color: "#64748b" }} title="Start processor for live count">
+                            {cam.crowd_roi_enabled && cam.last_crowd_roi_count != null
+                              ? `Z:${cam.last_crowd_roi_count}`
+                              : "—"}
+                          </span>
+                        ) : (
+                          (() => {
+                            const live = metricByCam.get(cam.id);
+                            if (!live) {
+                              return (
+                                <span style={{ color: "#64748b" }}>…</span>
+                              );
+                            }
+                            return (
+                              <span
+                                className="font-mono tabular-nums"
+                                style={{ color: "#00d4ff" }}
+                                title={
+                                  cam.crowd_roi_enabled
+                                    ? `Frame: ${live.people_count} · Zone: ${live.roi_count}`
+                                    : `People in frame: ${live.people_count}`
+                                }
+                              >
+                                {live.people_count}
+                                {cam.crowd_roi_enabled ? (
+                                  <span style={{ color: "#fbbf24" }}> / {live.roi_count}</span>
+                                ) : null}
+                              </span>
+                            );
+                          })()
+                        )}
+                      </td>
+                    )}
                     <td style={{ color: "#475569", fontSize: "0.75rem" }}>
                       {formatTs(cam.created_at)}
                     </td>

@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { Camera as CameraIcon, Play, Square, Wifi, WifiOff, MapPin, VideoOff } from "lucide-react";
 import { Camera } from "@/types";
 import { startProcessor, stopProcessor, getCameraVideoSrc } from "@/lib/api";
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
@@ -12,45 +12,23 @@ interface CameraCardProps {
   onRefresh: () => void;
 }
 
-/**
- * Isolated MJPEG img that never re-mounts due to parent re-renders.
- * Only re-mounts when cameraId changes (e.g. processor toggled on/off).
- * This prevents the blink/flash caused by React reconciling a changed src.
- */
-const MjpegStream = memo(function MjpegStream({
-  cameraId,
-  name,
-  onError,
-}: {
-  cameraId: number;
-  name: string;
-  onError: () => void;
-}) {
-  const src = getCameraVideoSrc(cameraId);
-  return (
-    <img
-      src={src}
-      alt={`${name} live stream`}
-      className="w-full h-full object-cover"
-      onError={onError}
-    />
-  );
-});
-
 function CameraCard({ camera, onRefresh }: CameraCardProps) {
   const [loading, setLoading] = useState(false);
   const [streamError, setStreamError] = useState(false);
-
+  
   const isActive = camera.status === "active";
   const isError = camera.status === "error";
 
+  const streamUrl = getCameraVideoSrc(camera.id);
+
+  // Reset stream error if the camera becomes active again
   useEffect(() => {
     if (isActive) setStreamError(false);
   }, [isActive]);
 
   async function handleToggle() {
     setLoading(true);
-    setStreamError(false);
+    setStreamError(false); // Reset error state on new attempt
     try {
       if (isActive) {
         await stopProcessor(camera.id);
@@ -59,10 +37,14 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
         await startProcessor(camera.id);
         toast.success(`Resumed ${camera.name} AI`);
       }
+      
+      // Wait a tiny bit for DB to commit before refreshing UI
       setTimeout(() => onRefresh(), 500);
+      
     } catch (err: any) {
+      // Robust error handling to prevent React crashes
       const detail = err.response?.data?.detail;
-      const message = typeof detail === "string" ? detail : "Action failed. Check video file path.";
+      const message = typeof detail === 'string' ? detail : "Action failed. Check video file path.";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -71,7 +53,9 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
 
   return (
     <div className="aegis-card overflow-hidden group border border-[#1a2540] hover:border-[#00d4ff]/30 transition-colors">
+      {/* Video Section */}
       <div className="relative aspect-video bg-[#080d1a] flex items-center justify-center overflow-hidden">
+        {/* Corner brackets */}
         <span className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 z-10 opacity-40" style={{ borderColor: "#00d4ff" }} />
         <span className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 z-10 opacity-40" style={{ borderColor: "#00d4ff" }} />
         <span className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 z-10 opacity-40" style={{ borderColor: "#00d4ff" }} />
@@ -79,11 +63,15 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
 
         {isActive && !streamError && <div className="scan-overlay z-10" />}
 
+        {/* Real Video Stream */}
         {isActive && !streamError ? (
-          <MjpegStream
-            cameraId={camera.id}
-            name={camera.name}
-            onError={() => setStreamError(true)}
+          <img
+            src={streamUrl}
+            alt={`${camera.name} live stream`}
+            className="w-full h-full object-cover"
+            onError={() => {
+              setStreamError(true);
+            }}
           />
         ) : (
           <div className="flex flex-col items-center gap-2 opacity-40">
@@ -103,6 +91,7 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
           </div>
         )}
 
+        {/* Status badge */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
           <span
             className="flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded uppercase font-mono tracking-wider"
@@ -117,6 +106,7 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
           </span>
         </div>
 
+        {/* REC dot */}
         {isActive && !streamError && (
           <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20 bg-black/40 px-2 py-0.5 rounded">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -125,6 +115,7 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
         )}
       </div>
 
+      {/* Info Row */}
       <div className="p-3 flex items-center justify-between gap-3 bg-[#0c1222]">
         <div className="min-w-0 flex-1">
           <Link href={`/dashboard/cameras/${camera.id}`} className="block">
@@ -145,8 +136,8 @@ function CameraCard({ camera, onRefresh }: CameraCardProps) {
           onClick={handleToggle}
           disabled={loading}
           className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-all active:scale-90 ${
-            isActive
-              ? "bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20"
+            isActive 
+              ? "bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20" 
               : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20"
           }`}
         >

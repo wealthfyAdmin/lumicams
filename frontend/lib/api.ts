@@ -16,7 +16,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  headers: { "Content-Type": "application/json" },
 });
 
 /**
@@ -341,15 +340,15 @@ export async function enrollFaceIdentityByImage(payload: {
   employee_code?: string;
   category: "whitelist" | "blacklist" | "neutral";
   image: File;
+  organization_id?: number;
 }) {
   const form = new FormData();
   form.append("name", payload.name);
   if (payload.employee_code) form.append("employee_code", payload.employee_code);
   form.append("category", payload.category);
+  if (payload.organization_id) form.append("organization_id", String(payload.organization_id));
   form.append("image", payload.image);
-  const res = await api.post("/faces/identities/enroll-image", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const res = await api.post("/faces/identities/enroll-image", form);
   return res.data;
 }
 

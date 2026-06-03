@@ -564,9 +564,9 @@ export default function SettingsPage() {
         title="AI ENGINE"
         icon={Brain}
         rows={[
-          { key: "Fire Model", value: "YOLOv8n (ultralytics)", note: "models/fire_yolov8n.pt" },
-          { key: "Fall Detection", value: "MediaPipe Pose (Lite)", note: "model_complexity=0" },
-          { key: "Infer Every N Frames", value: "5", note: "INFER_EVERY_N_FRAMES env" },
+          { key: "Fire Model", value: "YOLO fire/smoke (.pt)", note: "YOLO_FIRE_MODEL=models/fire.pt — run scripts/download_fire_model.py" },
+          { key: "Fall Detection", value: "YOLO pose (3.14) / MediaPipe (3.12)", note: "POSE_YOLO_MODEL=yolo11n-pose.pt; /cameras/{id}/fall-status" },
+          { key: "Infer Every N Frames", value: "2", note: "INFER_EVERY_N_FRAMES env" },
           { key: "Fire Confidence", value: "0.45", note: "FIRE_CONF_THRESHOLD env" },
           { key: "Fall Ratio", value: "1.4", note: "FALL_RATIO_THRESHOLD env" },
           { key: "Alert Cooldown", value: "10 seconds", note: "ALERT_COOLDOWN_SECONDS env" },

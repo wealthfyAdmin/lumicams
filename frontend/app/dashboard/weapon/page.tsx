@@ -72,7 +72,7 @@ export default function WeaponPage() {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1
-            className="text-xl font-bold tracking-widest"
+            className="text-md font-bold tracking-widest"
             style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}
           >
             WEAPON DETECTION
@@ -99,7 +99,7 @@ export default function WeaponPage() {
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>
             CAMERAS WITH WEAPON ON
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#f87171" }}>
+          <p className="text-xl font-bold mt-1" style={{ color: "#f87171" }}>
             {activeCount}
           </p>
         </div>
@@ -107,7 +107,7 @@ export default function WeaponPage() {
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>
             WEAPON ALERTS (RECENT)
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#ef4444" }}>
+          <p className="text-xl font-bold mt-1" style={{ color: "#ef4444" }}>
             {alerts.length}
           </p>
         </div>

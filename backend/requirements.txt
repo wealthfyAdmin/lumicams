@@ -1,6 +1,6 @@
 # ============================================================
 # Aegis-Eye Backend – Python Dependencies
-# Compatible with Python 3.11 / 3.12 / 3.13 on Windows/Linux/Mac
+# Compatible with Python 3.11–3.14 on Windows/Linux/Mac (fall uses YOLO pose on 3.13+)
 # ============================================================
 
 # --- Web Framework ---
@@ -31,13 +31,8 @@ opencv-python-headless>=4.10.0.84
 # --- AI / Machine Learning ---
 # YOLO11 requires ultralytics 8.3+; 8.2+ supports numpy 2.x and Python 3.13
 ultralytics>=8.3.0
-# lap is required by Ultralytics' ByteTrack tracker; without it every inference
-# logs "lap>=0.5.12 not found, attempting AutoUpdate" spam at runtime.
-lap>=0.5.12
 
-# mediapipe does NOT yet support Python 3.13 on Windows.
-# Comment this line out if you are on Python 3.13 — fall detection
-# will be gracefully disabled, everything else works normally.
+# Optional on 3.11–3.12 (fall defaults to YOLO pose on 3.13+). Not available on 3.14 wheels yet.
 mediapipe>=0.10.14; python_version < "3.13"
 
 # Face recognition: onnxruntime enables YuNet+ArcFace pipeline on Python 3.13 where `insightface` has no wheel.

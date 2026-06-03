@@ -20,7 +20,7 @@ This document covers **local development**, **VPS production** deployment, and *
 ## Prerequisites
 
 - **PostgreSQL** (local or remote).
-- **Python** 3.11 or 3.12 for best compatibility (MediaPipe fall detection; Python 3.13 on Windows may omit MediaPipe—backend degrades gracefully).
+- **Python** 3.11–3.14 supported. Fall detection uses **YOLO pose** on 3.13+ (including 3.14); MediaPipe is optional on 3.11–3.12.
 - **Node.js** 18+ and npm.
 - **FFmpeg** libraries (usually pulled in with OpenCV); on Ubuntu: `sudo apt install ffmpeg libsm6 libxext6`.
 - **YOLO / PPE model files** (`.pt`) placed where `backend/.env` points (e.g. under `backend/models/`).
@@ -334,7 +334,7 @@ Full template: **`backend/.env.example`**. Code defaults: `backend/app/inference
 | WebSocket disconnects | Nginx must pass `Upgrade` / `Connection` for `/ws/`; only one backend worker. |
 | PPE / fire “not loading” | Model path in `.env`; files exist on server; read permissions for service user. |
 | High CPU | Increase `INFER_EVERY_N_FRAMES`; reduce resolution; disable unused per-camera modules; add GPU. |
-| Fall detection missing on Windows Py 3.13 | Use Python 3.11/3.12 with MediaPipe, or accept fall module off. |
+| Fall detection on Python 3.13+ / 3.14 | Uses `POSE_YOLO_MODEL` (default `models/yolo11n-pose.pt`, auto-download). Check `/api/cameras/{id}/fall-status` → `pose_backend: yolo_pose`. |
 
 ---
 

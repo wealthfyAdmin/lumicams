@@ -156,70 +156,6 @@ def get_or_create_notification_settings(
     return row
 
 
-def get_effective_notification_settings(
-    db: Session,
-    organization_id: Optional[int] = None,
-) -> NotificationSettings:
-    settings = get_or_create_notification_settings(db, organization_id=organization_id)
-    if organization_id is None:
-        return settings
-
-    global_settings = get_or_create_notification_settings(db, organization_id=None)
-
-    eff = NotificationSettings(
-        organization_id=organization_id,
-        smtp_enabled=settings.smtp_enabled,
-        smtp_host=settings.smtp_host,
-        smtp_port=settings.smtp_port,
-        smtp_use_implicit_ssl=settings.smtp_use_implicit_ssl,
-        smtp_username=settings.smtp_username,
-        smtp_password=settings.smtp_password,
-        smtp_from_email=settings.smtp_from_email,
-        email_recipients=list(settings.email_recipients or []),
-        default_owner_email=settings.default_owner_email,
-        whatsapp_enabled=settings.whatsapp_enabled,
-        ultramsg_instance_id=settings.ultramsg_instance_id,
-        ultramsg_token=settings.ultramsg_token,
-        whatsapp_recipients=list(settings.whatsapp_recipients or []),
-        email_subject_template=settings.email_subject_template,
-        email_body_template=settings.email_body_template,
-        whatsapp_body_template=settings.whatsapp_body_template,
-        public_dashboard_url=settings.public_dashboard_url,
-    )
-
-    if not (eff.smtp_host or "").strip() and global_settings.smtp_host:
-        eff.smtp_host = global_settings.smtp_host
-        eff.smtp_port = global_settings.smtp_port
-        eff.smtp_use_implicit_ssl = global_settings.smtp_use_implicit_ssl
-        eff.smtp_username = global_settings.smtp_username
-        eff.smtp_password = global_settings.smtp_password
-        eff.smtp_from_email = global_settings.smtp_from_email
-        eff.smtp_enabled = global_settings.smtp_enabled
-
-    if not eff.email_recipients and global_settings.email_recipients:
-        eff.email_recipients = list(global_settings.email_recipients)
-    if not (eff.default_owner_email or "").strip() and global_settings.default_owner_email:
-        eff.default_owner_email = global_settings.default_owner_email
-
-    if not (eff.ultramsg_instance_id or "").strip() and global_settings.ultramsg_instance_id:
-        eff.ultramsg_instance_id = global_settings.ultramsg_instance_id
-        eff.ultramsg_token = global_settings.ultramsg_token
-        eff.whatsapp_enabled = global_settings.whatsapp_enabled
-        if not eff.whatsapp_recipients and global_settings.whatsapp_recipients:
-            eff.whatsapp_recipients = list(global_settings.whatsapp_recipients)
-
-    if not (eff.email_subject_template or "").strip():
-        eff.email_subject_template = global_settings.email_subject_template
-    if not (eff.email_body_template or "").strip():
-        eff.email_body_template = global_settings.email_body_template
-    if not (eff.whatsapp_body_template or "").strip():
-        eff.whatsapp_body_template = global_settings.whatsapp_body_template
-    if not (eff.public_dashboard_url or "").strip():
-        eff.public_dashboard_url = global_settings.public_dashboard_url
-
-    return eff
-
-
 def _normalize_e164_phone(raw: str) -> str:
     s = (raw or "").strip()
     if not s:
@@ -486,7 +422,7 @@ def dispatch_alert_notifications(
     try:
         cam = db.query(Camera).filter(Camera.id == camera_id).first()
         org_id = getattr(cam, "organization_id", None) if cam else None
-        settings = get_effective_notification_settings(db, organization_id=org_id)
+        settings = get_or_create_notification_settings(db, organization_id=org_id)
         camera_location = cam.location if cam else None
 
         public_base = (settings.public_dashboard_url or "").strip() or os.getenv(
@@ -589,7 +525,7 @@ def schedule_alert_notifications(
 
 def send_test_notifications(db: Session, organization_id: Optional[int] = None) -> dict[str, Any]:
     """Sync test from API (admin)."""
-    settings = get_effective_notification_settings(db, organization_id=organization_id)
+    settings = get_or_create_notification_settings(db, organization_id=organization_id)
     public_base = (settings.public_dashboard_url or "").strip()
     now = datetime.utcnow()
     context = {

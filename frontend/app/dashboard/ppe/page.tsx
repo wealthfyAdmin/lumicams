@@ -69,7 +69,7 @@ export default function PpePage() {
     <div className="space-y-6 fade-in">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold tracking-widest" style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}>
+          <h1 className="text-md font-bold tracking-widest" style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}>
             PPE COMPLIANCE
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--dash-subtle)" }}>
@@ -86,11 +86,11 @@ export default function PpePage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="aegis-card p-4">
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>CAMERAS WITH PPE ON</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#34d399" }}>{activeCount}</p>
+          <p className="text-xl font-bold mt-1" style={{ color: "#34d399" }}>{activeCount}</p>
         </div>
         <div className="aegis-card p-4">
           <p className="text-xs tracking-widest" style={{ color: "var(--dash-subtle)" }}>PPE ALERTS (RECENT)</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#f59e0b" }}>{alerts.length}</p>
+          <p className="text-xl font-bold mt-1" style={{ color: "#f59e0b" }}>{alerts.length}</p>
         </div>
         <div className="aegis-card p-4 flex items-center gap-3">
           <HardHat className="w-6 h-6" style={{ color: "#00d4ff" }} />

@@ -27,6 +27,7 @@ export default function FaceIntelligencePage() {
   const [identities, setIdentities] = useState<FaceIdentity[]>([]);
   const [sightings, setSightings] = useState<FaceSighting[]>([]);
   const [attendance, setAttendance] = useState<FaceSighting[]>([]);
+  const user = useAuth((s) => s.user);
   const isAdmin = useAuth((s) => s.isAdmin);
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -86,12 +87,16 @@ export default function FaceIntelligencePage() {
       const nm = name.trim();
       if (!nm) throw new Error("Name is required.");
       if (faceFile) {
-        await enrollFaceIdentityByImage({
+        const enrollPayload: any = {
           name: nm,
           employee_code: employeeCode.trim() || undefined,
           category,
           image: faceFile,
-        });
+        };
+        if (user?.role === "super_admin" && user?.organization_id) {
+          enrollPayload.organization_id = user.organization_id;
+        }
+        await enrollFaceIdentityByImage(enrollPayload);
       } else {
         let embeddings: number[][] = [];
         const raw = embeddingsRaw.trim();
@@ -106,13 +111,17 @@ export default function FaceIntelligencePage() {
             embeddings = [parsed as number[]];
           }
         }
-        await createFaceIdentity({
+        const payload: any = {
           name: nm,
           employee_code: employeeCode.trim() || undefined,
           category,
           embeddings,
           is_active: true,
-        });
+        };
+        if (user?.role === "super_admin" && user?.organization_id) {
+          payload.organization_id = user.organization_id;
+        }
+        await createFaceIdentity(payload);
       }
       setName("");
       setEmployeeCode("");
@@ -189,7 +198,7 @@ export default function FaceIntelligencePage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1
-            className="text-xl font-bold tracking-widest flex items-center gap-2"
+            className="text-md font-bold tracking-widest flex items-center gap-2"
             style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}
           >
             <ScanFace className="w-6 h-6" />
@@ -495,7 +504,7 @@ function Stat({
       <p className="text-[10px] tracking-widest flex items-center gap-1.5" style={{ color: "var(--dash-subtle)" }}>
         {icon} {title}
       </p>
-      <p className="text-2xl font-bold mt-1" style={{ color, fontFamily: "var(--font-orbitron)" }}>
+      <p className="text-xl font-bold mt-1" style={{ color, fontFamily: "var(--font-orbitron)" }}>
         {value}
       </p>
     </div>

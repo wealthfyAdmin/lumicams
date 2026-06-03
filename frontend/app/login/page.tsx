@@ -70,7 +70,7 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="aegis-card p-8">
-          <h2 className="text-lg font-semibold mb-6" style={{ color: "#94a3b8", letterSpacing: "0.08em" }}>
+          <h2 className="text-md font-semibold mb-6" style={{ color: "#94a3b8", letterSpacing: "0.08em" }}>
             OPERATOR LOGIN
           </h2>
 

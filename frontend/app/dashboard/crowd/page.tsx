@@ -122,7 +122,7 @@ export default function CrowdAnalyticsPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1
-            className="text-xl font-bold tracking-widest flex items-center gap-2"
+            className="text-md font-bold tracking-widest flex items-center gap-2"
             style={{ fontFamily: "var(--font-orbitron)", color: "#00d4ff" }}
           >
             <Footprints className="w-6 h-6" />
@@ -506,7 +506,7 @@ function Metric({
       <p className="text-[10px] tracking-widest" style={{ color: "#475569" }}>
         {label}
       </p>
-      <p className="text-2xl font-bold mt-1" style={{ color, fontFamily: "var(--font-orbitron)" }}>
+      <p className="text-xl font-bold mt-1" style={{ color, fontFamily: "var(--font-orbitron)" }}>
         {value}
       </p>
       {sub && (
@@ -535,7 +535,7 @@ function MetricSmall({
       <p className="text-[9px] tracking-wider" style={{ color: "#475569" }}>
         {label}
       </p>
-      <p className="text-xl font-bold tabular-nums mt-0.5" style={{ color: value == null ? "#475569" : color, fontFamily: "var(--font-orbitron)" }}>
+      <p className="text-md font-bold tabular-nums mt-0.5" style={{ color: value == null ? "#475569" : color, fontFamily: "var(--font-orbitron)" }}>
         {value == null ? "—" : value}
       </p>
     </div>
